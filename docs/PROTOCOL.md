@@ -33,6 +33,10 @@ is unknown. One C[j] per job represents its mandatory local postconditions;
 C_dispatch represents local dispatcher acceptance, never external batch success.
 An initially failed machine may receive work after repair; interruptions do not
 erase established delivery. Reassignment is unsupported in version 1.
+The receipt window ends at the earlier of observed attempt completion and H;
+changing an evaluation deadline changes T only, not the X/D/C observation binding.
+Records after H do not establish observed coordinates. Explicit final delivery
+rejection may establish X=0; absent or contradictory evidence remains unknown.
 
 The observation horizon is H=1.25*C0. Process all events at H before stopping.
 Confirmed local postcondition gives C[j]=1, explicit terminal failure gives 0,
@@ -156,3 +160,9 @@ production stages. All obligations have explicit completed/failed/timeout/unrun
 statuses. Exhausted budget or missing required evidence means PARTIAL. Neither a
 pilot nor direct-R substitutes for full-model obligations. Final claims require
 independent rechecking against this original criterion.
+
+Core qualification is distinct from complete block acceptance. Maximum-schema
+feasibility follows the frozen core qualification. The first required Mk01-F1
+calibration bank then supplies E4 masking/refinement and isolated-identification
+acceptance before the remaining calibration conditions are opened. It counts
+once toward the required bank and is not an additional pilot or substitute series.

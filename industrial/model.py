@@ -1,7 +1,7 @@
 """Industrial schema: the published predicates and Cartesian observation fibers."""
 from collections import Counter
 from copy import deepcopy
-from telemetry_availability.graph_execution_model_v1 import control_ids, predicates
+from simpat_core.graph_execution_model_v1 import control_ids, predicates
 
 VERSION = 'industrial-cartesian-joint-v1'
 

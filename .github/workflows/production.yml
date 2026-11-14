@@ -1,0 +1,116 @@
+name: Industrial production bank
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        type: choice
+        options: [preflight, acquire]
+        required: true
+      qualification:
+        type: string
+        default: ''
+      preflight:
+        type: string
+        default: ''
+      split:
+        type: choice
+        options: [calibration, validation]
+        default: calibration
+      conditions:
+        type: string
+        default: '["Mk01-F1"]'
+      binding_gate:
+        type: string
+        default: ''
+      seal:
+        type: string
+        default: ''
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: industrial-campaign
+  cancel-in-progress: false
+env:
+  GH_REPO: ${{ github.repository }}
+  PYTHONPATH: .:vendor/simpat
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  GOMAXPROCS: '1'
+jobs:
+  produce:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        condition: ${{ fromJSON(inputs.stage == 'preflight' && '["preflight"]' || inputs.conditions) }}
+    container:
+      image: python:3.11.16-bookworm@sha256:b99029c95d3d37fb1e4e76d287f7984373dca77c665885986e31b2c95260c13c
+      options: --cpus=1 --memory=4g --memory-swap=4g
+    env:
+      STAGE: ${{ inputs.stage }}
+      CONDITION: ${{ matrix.condition }}
+      QUALIFICATION: ${{ inputs.qualification }}
+      PREFLIGHT: ${{ inputs.preflight }}
+      SPLIT: ${{ inputs.split }}
+      BINDING_GATE: ${{ inputs.binding_gate }}
+      SEAL: ${{ inputs.seal }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: python scripts/budget.py
+      - run: apt-get update -qq && apt-get install -y --no-install-recommends gh
+      - name: Install immutable environment
+        run: |
+          gh release download industrial-environment-v1 --pattern environment.tar.gz --dir output
+          tar -xzf output/environment.tar.gz -C output
+          cmp requirements.lock output/environment/requirements.lock
+          python -m pip install --no-index --find-links output/environment/wheels --require-hashes -r requirements.lock
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        if: inputs.stage == 'preflight' || inputs.split == 'validation'
+        with:
+          go-version: '1.26.0'
+          cache: false
+      - name: Fetch unchanged S1
+        if: inputs.stage == 'preflight' || inputs.split == 'validation'
+        env:
+          TSFG_SOURCE_SSH_KEY: ${{ secrets.TSFG_SOURCE_SSH_KEY }}
+        run: python scripts/fetch_tsfg.py
+      - name: Build required independent participants
+        run: |
+          if [ "$STAGE" = preflight ]; then
+            python -c 'from industrial.releases import fetch; import os; fetch(os.environ["QUALIFICATION"],"output/input-qualification")'
+            export TSFG_TEST_EVIDENCE=output/input-qualification/qualification/provenance/tsfg-provenance.json
+          elif [ "$SPLIT" = validation ]; then
+            python -c 'from industrial.releases import fetch; import os; fetch(os.environ["PREFLIGHT"],"output/input-preflight")'
+            export TSFG_TEST_EVIDENCE=output/input-preflight/preflight/provenance/tsfg-provenance.json
+          else
+            export PUBLIC_ONLY=1
+          fi
+          python scripts/build.py
+      - name: Execute fixed production stage
+        run: |
+          if [ "$STAGE" = preflight ]; then
+            python -m industrial.campaign preflight --qualification "$QUALIFICATION"
+          else
+            python -m industrial.campaign acquire --preflight "$PREFLIGHT" --condition "$CONDITION" --split "$SPLIT" --seal "$SEAL" --binding-gate "$BINDING_GATE"
+          fi
+      - name: Preserve evidence and failures
+        if: always()
+        run: |
+          if [ "$STAGE" = preflight ]; then
+            mkdir -p output/preflight/provenance
+            cp output/budget.json output/preflight/provenance/ || true
+            python scripts/publish.py --name preflight --path output/preflight
+          else
+            mkdir -p output/bank/provenance output/observations
+            cp output/budget.json output/bank/provenance/ || true
+            cp build/*.json output/bank/provenance/ || true
+            python scripts/publish.py --name "$SPLIT-bank-$CONDITION" --path output/bank
+            python scripts/publish.py --name "$SPLIT-observations-$CONDITION" --path output/observations
+          fi

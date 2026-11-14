@@ -1,0 +1,62 @@
+name: Isolated calibration identification
+on:
+  workflow_dispatch:
+    inputs:
+      observation_tags:
+        type: string
+        required: true
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: industrial-campaign
+  cancel-in-progress: false
+env:
+  GH_REPO: ${{ github.repository }}
+  PYTHONPATH: .:vendor/simpat
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+jobs:
+  identify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        observations: ${{ fromJSON(inputs.observation_tags) }}
+    container:
+      image: python:3.11.16-bookworm@sha256:b99029c95d3d37fb1e4e76d287f7984373dca77c665885986e31b2c95260c13c
+      options: --cpus=1 --memory=4g --memory-swap=4g
+    env:
+      OBSERVATIONS: ${{ matrix.observations }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /industrial/
+            /vendor/simpat/
+            /planning/
+            /scripts/budget.py
+            /scripts/publish.py
+            /requirements.lock
+      - run: python scripts/budget.py
+      - run: apt-get update -qq && apt-get install -y --no-install-recommends gh
+      - name: Install immutable environment
+        run: |
+          gh release download industrial-environment-v1 --pattern environment.tar.gz --dir output
+          tar -xzf output/environment.tar.gz -C output
+          cmp requirements.lock output/environment/requirements.lock
+          python -m pip install --no-index --find-links output/environment/wheels --require-hashes -r requirements.lock
+      - name: Identify and replay without product accounts or calendars
+        run: python -m industrial.campaign fit --observations "$OBSERVATIONS"
+      - name: Preserve fitted models and failures
+        if: always()
+        run: |
+          mkdir -p output/fit/provenance
+          cp output/budget.json output/fit/provenance/ || true
+          python scripts/publish.py --name "fit-${OBSERVATIONS#calibration-observations-}" --path output/fit

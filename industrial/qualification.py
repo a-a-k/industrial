@@ -23,7 +23,7 @@ def run():
         protocol='industrial-e1-e6-v1',family='cartesian_known_coordinate_fibers',
         acceptance_pending=['maximum_industrial_schema','E4_production_masks_and_refinement','isolated_identification_job'],
         implementation={str(p):hashlib.sha256(p.read_bytes()).hexdigest()
-            for p in [Path('industrial')/n for n in ('binding.py','model.py','solver.py','targets.py','oracle.py','statistics.py','production.py','inputs.py')]})
+            for p in [Path('industrial')/n for n in ('binding.py','model.py','solver.py','targets.py','oracle.py','statistics.py','production.py','inputs.py','common.py','discovery.py','isolated.py')]})
     write_json(root/'qualification.json',report)
     print((root/'tests.txt').read_text())
     print(json.dumps(report))

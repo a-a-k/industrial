@@ -25,6 +25,26 @@
       "sha256": "4ca03f3ecbb67804cade553dc39abeaa208898f3a0df1c36af4f0dcb36ec4999"
     },
     {
+      "path": "vendor/simpat/simpat_core/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "vendor/simpat/simpat_core/cudd_comparison_v2.py",
+      "sha256": "255ceb59cc5eb74149edac8f7444a4ccfa8e9e61e7a27aa4c755d645b880e8f0"
+    },
+    {
+      "path": "vendor/simpat/simpat_core/exact_backend_common_v1.py",
+      "sha256": "424d2c9325a7c065a6f2f0ef04495da9ada199ddaf595d4fa43aa19907221d84"
+    },
+    {
+      "path": "vendor/simpat/simpat_core/graph_execution_model_v1.py",
+      "sha256": "db60c0049c29c86f59137acfded9d7f9ab47f6bb63a7a230ee382458f452b361"
+    },
+    {
+      "path": "vendor/simpat/simpat_core/graph_replay_v3.py",
+      "sha256": "e65b5c3321c47448fc855e16b45fae439a069c3a0232a8f3c9b96cd03c275fb5"
+    },
+    {
       "path": "vendor/simpat/telemetry_availability/__init__.py",
       "sha256": "8c4cb841ef12c5caa18070835bb7cf0c130ebd8f8fde94ea87651d0791e214f3"
     },

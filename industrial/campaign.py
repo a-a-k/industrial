@@ -69,7 +69,7 @@ def acquire(preflight_tag,condition,split,seal_tag=None,binding_gate=None):
     instance,law=condition.split('-');pref,_=fetch(preflight_tag,'output/input-preflight')
     metadata=read_json(pref/'preflight.json')
     if metadata['status']!='PASS':raise ValueError('preflight not passed')
-    qroot,_=fetch(metadata['core_qualification'],'output/input-qualification');check_qualification(qroot)
+    qroot,_=fetch(metadata['core_qualification'],'output/input-qualification');qualified=check_qualification(qroot)
     if split=='calibration' and condition!='Mk01-F1':
         if not binding_gate:raise ValueError('remaining calibration requires first-bank E4 acceptance')
         gate,_=fetch(binding_gate,'output/input-binding-gate');accepted=read_json(gate/'fit.json')
@@ -135,13 +135,15 @@ def acquire(preflight_tag,condition,split,seal_tag=None,binding_gate=None):
     write_json(bank/'bank.json',report)
     write_json(obs/'index.json',dict(condition=condition,split=split,preflight=preflight_tag,
         schema_sha256=digest(canonical(schema(packet['contract']))),cases=index,registered=count,
-        permitted_inputs_only=True))
+        permitted_inputs_only=True,implementation=qualified['implementation']))
     if mismatches:raise SystemExit('Engine mismatches retained; bank cannot be accepted')
 
 
 def fit_observations(observation_tag):
     source,receipt=fetch(observation_tag,'output/input-observations');index=read_json(source/'index.json')
     if index['split']!='calibration':raise ValueError('only calibration observations identify forecasts')
+    for name,expected in index['implementation'].items():
+        if digest(Path(name).read_bytes())!=expected:raise ValueError('fixed identification implementation changed')
     root=Path('output/fit');root.mkdir(parents=True,exist_ok=True);reports=[];processes=[]
     allowed={r['file'] for r in index['cases']}|{'index.json','SHA256SUMS.json'}
     if {p.name for p in source.iterdir() if p.is_file()}!=allowed:raise ValueError('unexpected identification files')

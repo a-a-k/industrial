@@ -2,7 +2,7 @@
 from itertools import product
 from time import perf_counter
 from dd.cudd import BDD
-from telemetry_availability.cudd_comparison_v2 import Cudd
+from simpat_core.cudd_comparison_v2 import Cudd
 from .model import validate
 from .targets import estimate
 

@@ -58,8 +58,8 @@ def consistent(values):
     return values[0] if values and all(v == values[0] for v in values) else None
 
 
-def bind(contract, attempts, records, deadline):
-    proto = schema(contract)
+def bind(contract, attempts, records, deadline, state_schema=None):
+    proto = schema(contract) if state_schema is None else state_schema
     ops = {o['id']:o for o in contract['operations']}
     attempt_ids = [a['id'] for a in attempts]
     if not attempts or len(attempt_ids) != len(set(attempt_ids)):
