@@ -201,7 +201,8 @@ class ExactnessE3(unittest.TestCase):
 
     def test_structural_diagnosis_and_physical_family(self):
         from fractions import Fraction
-        cases=[(row(a=None,b=None,da=True,db=False),0,1),
+        cases=[(row(a=None,b=False,da=True,db=False),0,0),
+               (row(a=None,b=None,da=True,db=False,call_completed=None),0,1),
                (row(a=True,call_completed=False),1,1)]
         for values,lo,hi in cases:
             answer=Compiled(industrial([values])).solve(['reachability_minus_execution'])['estimates']['reachability_minus_execution']
@@ -214,6 +215,7 @@ class ExactnessE3(unittest.TestCase):
         # Uniform completion assignments miss the nonmonotone target's maximum.
         self.assertEqual(max(int(a and not b) for a,b in ((False,False),(True,True))),0)
         self.assertEqual(max(int(a and not b) for a,b in product((False,True),repeat=2)),1)
+        with self.assertRaises(ValueError):Compiled(model).solve(['C1_not_C2'])
 
 
 class ReductionE4(unittest.TestCase):

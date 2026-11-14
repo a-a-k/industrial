@@ -65,8 +65,9 @@ def bind(contract, attempts, records, deadline):
     if not attempts or len(attempt_ids) != len(set(attempt_ids)):
         raise ValueError('invalid attempt census')
     by_attempt = defaultdict(list)
+    registered = set(attempt_ids)
     for record in records:
-        if record['attempt'] not in set(attempt_ids):
+        if record['attempt'] not in registered:
             raise ValueError('unregistered attempt')
         if record['kind'] == 'reassign':
             raise Unsupported('reassignment')
@@ -93,22 +94,27 @@ def bind(contract, attempts, records, deadline):
         accepted = [r['value'] for r in rows if r['kind']=='dispatch']
         row['C_dispatch'] = consistent(accepted)
         window_end = min(deadline,attempt['observed_until'],end if end is not None else attempt['observed_until'])
+        selections = defaultdict(list);receipts_by_op = defaultdict(list);postconditions = defaultdict(list)
+        for record in rows:
+            if record['kind']=='assignment' and record.get('closed',False):
+                selections[record['op']].append(record['machine'])
+            elif record['kind']=='receipt':
+                receipts_by_op[(record['op'],record['machine'])].append(record)
+            elif record['kind']=='postcondition':
+                postconditions[record['job']].append(record['value'])
         for i,op in ops.items():
-            selected = [r['machine'] for r in rows if r['kind']=='assignment' and r['op']==i and r.get('closed',False)]
-            actual = consistent(selected)
+            actual = consistent(selections[i])
             for m in op['compatible_machines']:
                 dk = dkey(i,m)
                 if dk in row and actual is not None:
                     row[dk] = actual == m
-                receipts = [r for r in rows if r['kind']=='receipt' and r['op']==i and r['machine']==m
-                            and attempt['started_at'] <= r['time'] <= window_end]
+                receipts = [r for r in receipts_by_op[(i,m)] if attempt['started_at'] <= r['time'] <= window_end]
                 if receipts:
                     row[xkey(i,m)] = True
         for job in contract['jobs']:
             key = ckey(job)
             if key in row:
-                outcomes = [r['value'] for r in rows if r['kind']=='postcondition' and r['job']==job]
-                row[key] = consistent(outcomes)
+                row[key] = consistent(postconditions[job])
         observations.append(row)
         audits.append(dict(id=attempt['id'],status='SUPPORTED',known=sum(v is not None for v in row.values())))
     return proto,observations,audits

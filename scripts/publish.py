@@ -34,6 +34,6 @@ receipt.write_text(json.dumps(dict(name=a.name,commit=os.environ['GITHUB_SHA'],r
 parts.append(receipt)
 for start in range(0,len(parts),900):
     selected=parts[start:start+900];tag=base+(f'-volume{start//900:03d}' if start else '')
-    subprocess.run(['gh','release','create',tag,*map(str,selected),'--target',os.environ['GITHUB_SHA'],
+    subprocess.run(['gh','release','create',tag,*map(str,selected),'--repo',os.environ['GITHUB_REPOSITORY'],'--target',os.environ['GITHUB_SHA'],
         '--prerelease','--title',base,'--notes','Versioned experimental evidence. See protocol and SHA256SUMS.json.'],check=True)
 print(base)
