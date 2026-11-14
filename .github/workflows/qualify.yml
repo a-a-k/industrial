@@ -1,0 +1,61 @@
+name: Industrial E1–E4 qualification
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: industrial-campaign
+  cancel-in-progress: false
+env:
+  PYTHONPATH: .:vendor/simpat
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  GOMAXPROCS: '1'
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container:
+      image: python:3.11.16-bookworm@sha256:b99029c95d3d37fb1e4e76d287f7984373dca77c665885986e31b2c95260c13c
+      options: --cpus=1 --memory=4g --memory-swap=4g
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: Reserve campaign time
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/budget.py
+      - name: Install release transport
+        run: apt-get update -qq && apt-get install -y --no-install-recommends gh
+      - name: Install immutable environment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download industrial-environment-v1 --pattern environment.tar.gz --dir output
+          tar -xzf output/environment.tar.gz -C output
+          cmp requirements.lock output/environment/requirements.lock
+          python -m pip install --no-index --find-links output/environment/wheels --require-hashes -r requirements.lock
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.0'
+          cache: false
+      - name: Fetch unchanged S1
+        env:
+          TSFG_SOURCE_SSH_KEY: ${{ secrets.TSFG_SOURCE_SSH_KEY }}
+        run: python scripts/fetch_tsfg.py
+      - name: Build independent kernels and verify upstream
+        run: python scripts/build.py
+      - name: Qualify production binding and exact analysis
+        run: python -m industrial.qualification
+      - name: Preserve qualification evidence
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p output/qualification/provenance
+          cp output/budget.json output/qualification/provenance/ || true
+          cp build/*.json output/qualification/provenance/ || true
+          python scripts/publish.py --name qualification --path output/qualification

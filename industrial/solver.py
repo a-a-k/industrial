@@ -72,12 +72,12 @@ class Compiled:
         known = {k:v for k,v in zip(self.model['signal_ids'],values) if v is not None}
         cube = self.bdd.cube(known)
         result = set()
-        for bits in product((0,1),repeat=len(names)):
-            region = cube
-            for name,bit in zip(names,bits):
-                region &= self.roots[name] if bit else ~self.roots[name]
-                if region == self.bdd.false:
-                    break
-            if region != self.bdd.false:
-                result.add(bits)
+        def visit(index, region, bits):
+            if region == self.bdd.false: return
+            if index == len(names):
+                result.add(bits); return
+            root = self.roots[names[index]]
+            visit(index+1,region & ~root,bits+(0,))
+            visit(index+1,region & root,bits+(1,))
+        visit(0,cube,())
         return result

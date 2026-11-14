@@ -47,6 +47,10 @@
     {
       "path": "vendor/simpat/telemetry_availability/graph_replay_v3.py",
       "sha256": "e65b5c3321c47448fc855e16b45fae439a069c3a0232a8f3c9b96cd03c275fb5"
+    },
+    {
+      "path": "vendor/simpat/telemetry_availability/model.py",
+      "sha256": "d24be73dff2cac407332feac6a740097fea7165f5737de448cc0a8d483f2f030"
     }
   ]
 }
