@@ -94,6 +94,13 @@ def run_method(folder,method,query,deadline,result_path,saved=None):
 def paired(case,observation_tag,fit_tag):
     from .releases import fetch
     condition,mode,load_text,query,pair=case.split(':');count=int(load_text);methods=pair.split('-')
+    spec=read_json('provenance/measurements.json')
+    if condition not in spec['conditions'] or mode not in spec['observation_modes']:
+        raise ValueError('undeclared measurement condition')
+    if query=='saved_R':
+        if count!=512 or methods not in spec['saved_R_pairs']:raise ValueError('undeclared saved-model case')
+    elif query not in spec['pairs'] or count not in spec['loads'] or methods not in spec['pairs'][query]:
+        raise ValueError('undeclared measurement pair or load')
     if len(methods)!=2:raise ValueError('cost case must be paired')
     root=Path('output/measurement');root.mkdir(parents=True,exist_ok=True);setup=time.perf_counter()
     observations,_=fetch(observation_tag,'output/input-cost-observations');index=read_json(observations/'index.json')

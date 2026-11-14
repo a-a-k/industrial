@@ -73,7 +73,8 @@ def acquire(preflight_tag,condition,split,seal_tag=None,binding_gate=None):
     if split=='calibration' and condition!='Mk01-F1':
         if not binding_gate:raise ValueError('remaining calibration requires first-bank E4 acceptance')
         gate,_=fetch(binding_gate,'output/input-binding-gate');accepted=read_json(gate/'fit.json')
-        if accepted['condition']!='Mk01-F1' or accepted['status']!='PASS' or len(accepted['refinement_deadlines'])!=3:
+        if (accepted['condition']!='Mk01-F1' or accepted['status']!='PASS' or len(accepted['refinement_deadlines'])!=3
+                or accepted['observations']['bank_status']!='COMPLETE'):
             raise ValueError('first required calibration bank did not pass E4 and isolated identification')
     if split=='validation':
         if not seal_tag:raise ValueError('validation requires immutable prediction seal')
@@ -135,7 +136,8 @@ def acquire(preflight_tag,condition,split,seal_tag=None,binding_gate=None):
     write_json(bank/'bank.json',report)
     write_json(obs/'index.json',dict(condition=condition,split=split,preflight=preflight_tag,
         schema_sha256=digest(canonical(schema(packet['contract']))),cases=index,registered=count,
-        permitted_inputs_only=True,implementation=qualified['implementation']))
+        permitted_inputs_only=True,implementation=qualified['implementation'],bank_status=status,
+        bank_admission='INVALID' if mismatches else 'VALID'))
     if mismatches:raise SystemExit('Engine mismatches retained; bank cannot be accepted')
 
 
@@ -143,6 +145,7 @@ def fit_observations(observation_tag,validation_reanalysis=False):
     source,receipt=fetch(observation_tag,'output/input-observations');index=read_json(source/'index.json')
     expected='validation' if validation_reanalysis else 'calibration'
     if index['split']!=expected:raise ValueError('wrong sample split for analysis role')
+    if index['bank_admission']!='VALID':raise ValueError('invalid production bank cannot identify a model')
     for name,expected in index['implementation'].items():
         if digest(Path(name).read_bytes())!=expected:raise ValueError('fixed identification implementation changed')
     root=Path('output/fit');root.mkdir(parents=True,exist_ok=True);reports=[];processes=[]
