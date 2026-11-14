@@ -1,6 +1,11 @@
 name: Industrial E1–E4 qualification
 on:
   workflow_dispatch:
+    inputs:
+      upstream_evidence:
+        type: string
+        required: false
+        default: ''
 permissions:
   contents: write
   actions: read
@@ -48,7 +53,15 @@ jobs:
           TSFG_SOURCE_SSH_KEY: ${{ secrets.TSFG_SOURCE_SSH_KEY }}
         run: python scripts/fetch_tsfg.py
       - name: Build independent kernels and verify upstream
-        run: python scripts/build.py
+        env:
+          UPSTREAM_EVIDENCE: ${{ inputs.upstream_evidence }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -n "$UPSTREAM_EVIDENCE" ]; then
+            python -c 'from industrial.releases import fetch; import os; root,_=fetch(os.environ["UPSTREAM_EVIDENCE"],"output/upstream-evidence"); print(root)'
+            export TSFG_TEST_EVIDENCE="output/upstream-evidence/qualification/provenance/tsfg-provenance.json"
+          fi
+          python scripts/build.py
       - name: Qualify production binding and exact analysis
         run: python -m industrial.qualification
       - name: Preserve qualification evidence

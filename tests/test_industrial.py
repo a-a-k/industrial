@@ -2,10 +2,13 @@ from copy import deepcopy
 from itertools import product
 from pathlib import Path
 import unittest
+import os
+import subprocess
+import sys
 
-from industrial.binding import fit,mask,ckey,xkey,dkey
+from industrial.binding import fit,mask,ckey,xkey,dkey,direct_rows
 from industrial.common import canonical,rng,write_json
-from industrial.discovery import recover
+from industrial.discovery import recover,recover_and_rebind
 from industrial.model import VERSION,identify,make_schema,Unsupported
 from industrial.oracle import evaluate,enumerate_model,verify_certificates
 from industrial.production import simulate,export_observations,product_ledger,outcomes,check_physics,compare
@@ -85,7 +88,7 @@ class SemanticsE1(unittest.TestCase):
         self.assertIsNone(fit(missing,500)[1][0][ckey(0)])
         missing=deepcopy(packet);missing['records']=[r for r in missing['records'] if r['kind']!='receipt']
         self.assertIsNone(fit(missing,500)[1][0][xkey(0,0)])
-        for bad in (dict(kind='reassign',attempt='quality_failure'),
+        for bad in (dict(kind='reassign',attempt='quality_failure',time=0),
                     dict(kind='receipt',attempt='quality_failure',op=0,machine=0,time=0,parents=[99])):
             altered=deepcopy(packet);altered['records'].append(bad)
             with self.assertRaises(Unsupported):fit(altered,500)
@@ -95,6 +98,24 @@ class SemanticsE1(unittest.TestCase):
         _,rows,_=fit(packet,500)
         self.assertTrue(all(v is None for v in rows[0].values()))
         self.assertIsNone(rows[0]['timely'])
+
+    def test_all_timestamp_boundaries_and_deadline_invariance(self):
+        packet,_,_=produce('late_receipt',tiny(),[[0,0,300]],500)
+        early=fit(packet,200)[1][0];late=fit(packet,500)[1][0]
+        self.assertIs(early[xkey(0,0)],True)
+        self.assertEqual({k:v for k,v in early.items() if k!='timely'},
+                         {k:v for k,v in late.items() if k!='timely'})
+        future=deepcopy(packet)
+        for r in future['records']:r['time']=501
+        future['attempts'][0]['finished_at']=501
+        values=fit(future,500)[1][0]
+        self.assertIs(values['timely'],False)
+        self.assertTrue(all(v is None for k,v in values.items() if k!='timely'))
+        exact=deepcopy(packet)
+        for r in exact['records']:r['time']=500
+        exact['attempts'][0]['finished_at']=500
+        self.assertTrue(all(v is True for v in fit(exact,500)[1][0].values()))
+        with self.assertRaises(ValueError):fit(packet,501)
 
 
 class IdentificationE2(unittest.TestCase):
@@ -117,27 +138,66 @@ class IdentificationE2(unittest.TestCase):
         lm,lr,_=fit(lost,500)
         self.assertEqual(lm['sample_count'],2);self.assertIsNone(lr[1][ckey(0)])
         self.assertIs(lr[1]['timely'],True)
-        conflict=deepcopy(packet);conflict['records'].append(dict(attempt='second',record_id='conflict',kind='postcondition',job=0,value=False))
+        conflict=deepcopy(packet);conflict['records'].append(dict(attempt='second',record_id='conflict',kind='postcondition',job=0,value=False,time=100))
         self.assertIsNone(fit(conflict,500)[1][1][ckey(0)])
         lost_stage=deepcopy(packet);lost_stage['records']=[r for r in lost_stage['records'] if r.get('op')!=1]
         self.assertIsNone(fit(lost_stage,500)[1][0][dkey(1,0)])
         for value in (True,False):
             with self.assertRaises(ValueError):fit(dict(packet,Y=value),500)
-        original=canonical(fit(packet,500)[0])
-        external_labels=[True,False];external_labels=[not x for x in external_labels]
-        self.assertEqual(canonical(fit(packet,500)[0]),original)
+        self.assertEqual(query_full_r(model),query_reduced(direct(
+            direct_rows(packet['contract'],packet['attempts'],packet['records'],500),model['completion_signals'])))
 
     def test_equal_marginal_joint_laws(self):
-        common=industrial([row(entry_completed=False,call_completed=False),row()])
-        exclusive=industrial([row(entry_completed=False),row(call_completed=False)])
-        self.assertEqual(Compiled(common).solve(['execution'])['estimates']['execution']['lower'],.5)
-        self.assertEqual(Compiled(exclusive).solve(['execution'])['estimates']['execution']['upper'],0)
-        good=industrial([row(a=False,da=True,db=False),row(a=False,da=False,db=True)])
-        bad=industrial([row(a=False,da=True,db=True)]*2)
-        self.assertEqual(Compiled(good).solve(['execution'])['estimates']['execution']['lower'],.5)
-        self.assertEqual(Compiled(bad).solve(['execution'])['estimates']['execution']['upper'],0)
-        self.assertEqual([sum(word[i]=='A' for word in ('AA','BB')) for i in (0,1)],
-                         [sum(word[i]=='A' for word in ('AB','BA')) for i in (0,1)])
+        from collections import Counter
+        def evidence(words,selection):
+            contract=dict(id='E2-components',jobs=[0,1],operations=[
+                dict(id=i,job=i,predecessors=[],compatible_machines=[0,1] if selection else [0]) for i in (0,1)])
+            attempts=[];records=[];ledger=[]
+            for index,word in enumerate(words):
+                aid=f'component-{index}';attempts.append(dict(id=aid,started_at=0,observed_until=500,finished_at=100))
+                records.append(dict(attempt=aid,record_id='dispatch',kind='dispatch',time=0,value=True))
+                products=[]
+                for i,letter in enumerate(word):
+                    chosen=(0 if letter=='A' else 1) if selection else 0
+                    good=letter=='B' if selection else letter=='1'
+                    records.append(dict(attempt=aid,record_id=f'select:{i}',kind='assignment',op=i,machine=chosen,time=0,closed=True))
+                    records.append(dict(attempt=aid,record_id=f'delivery:{i}',
+                        kind='delivery_rejected' if selection and not good else 'receipt',
+                        op=i,machine=chosen,time=10,parents=[],final=True))
+                    records.append(dict(attempt=aid,record_id=f'qc:{i}',kind='postcondition',job=i,time=100,value=good))
+                    products.append(dict(job=i,serial=f'{aid}/{i}',issued_at=100,accepted=good))
+                ledger.append(dict(attempt=aid,status='OBSERVED',products=products))
+            packet=dict(contract=contract,attempts=attempts,records=records)
+            model,rows,_=fit(packet,500);answer=Compiled(model).solve(['execution'])['estimates']['execution']
+            external=outcomes(ledger,[0,1],500)
+            self.assertEqual(answer['lower'],sum(external.values())/len(external))
+            self.assertEqual(answer['upper'],answer['lower'])
+            return rows,answer
+        summaries=[]
+        for name,good_words,bad_words,selection in (
+                ('completion',('00','11'),('01','10'),False),
+                ('selection',('AA','BB'),('AB','BA'),True)):
+            good,ga=evidence(good_words,selection);bad,ba=evidence(bad_words,selection)
+            self.assertEqual(ga['lower'],.5);self.assertEqual(ba['lower'],0)
+            self.assertEqual({k:Counter(r[k] for r in good) for k in good[0]},
+                             {k:Counter(r[k] for r in bad) for k in bad[0]})
+            summaries.append(dict(case=name,first=ga,second=ba,marginals_equal=True))
+        write_json('output/qualification/E2-joint-laws.json',summaries)
+
+    def test_external_labels_mutation_in_fresh_isolated_processes(self):
+        packet=self.packet();workspace=Path.cwd().resolve();outputs=[]
+        root=workspace/'output/qualification/isolation';root.mkdir(parents=True,exist_ok=True)
+        for index,labels in enumerate(([True,False],[False,True])):
+            write_json(root/'external-labels.json',labels)
+            allowed=root/f'allowed-{index}';allowed.mkdir(exist_ok=True)
+            write_json(allowed/'packet.json',packet)
+            env={**os.environ,'PYTHONPATH':str(workspace)+os.pathsep+str(workspace/'vendor/simpat')}
+            subprocess.run([sys.executable,'-m','industrial.isolated','packet.json','identified.json',
+                            '--deadline','500'],cwd=allowed,env=env,check=True,timeout=300)
+            outputs.append((allowed/'identified.json').read_bytes())
+        self.assertEqual(outputs[0],outputs[1])
+        write_json(root/'independence.json',dict(status='PASS',external_labels_replaced=True,
+            fresh_processes=2,allowed_input_files=['packet.json'],models_and_estimates_identical=True))
 
     def test_graph_recovery_with_observation_probability(self):
         truth={(0,1),(0,2),(1,3),(2,3),(3,4),(3,5)};summary=[]
@@ -157,13 +217,22 @@ class IdentificationE2(unittest.TestCase):
                                 missing_fraction=miss/(256*len(truth)),expected=(1-p)**n)
                            for n,miss in missing.items())
         write_json('output/qualification/E2-discovery.json',summary)
+        records=[dict(source=0,target=1,attempt=1),dict(source=1,target=2,attempt=2)]
+        def binding(attempt,edges,all_records):
+            seen={(r['source'],r['target']) for r in all_records if r['attempt']==attempt}
+            return tuple(True if edge in seen else None for edge in edges)
+        prefix_edges,prefix=recover_and_rebind(range(3),[1],records[:1],binding)
+        final_edges,rebound=recover_and_rebind(range(3),[1,2],records,binding)
+        self.assertEqual(prefix,[(True,)])
+        self.assertEqual(rebound,[(True,None),(None,True)])
+        self.assertEqual(final_edges,[(0,1),(1,2)])
 
 
 class ExactnessE3(unittest.TestCase):
     def test_all_2187_fibers_with_independent_scalar_and_joint_oracle(self):
         model=industrial([row()]);compiled=Compiled(model);ids=model['signal_ids']
         full=[(bits,evaluate(model,dict(zip(ids,bits)))) for bits in product((False,True),repeat=7)]
-        names=[k for k in compiled.roots if k not in ('R','R_minus_execution')]
+        names=list(compiled.roots)
         witnesses=0
         for values in product((None,False,True),repeat=7):
             model['observation_categories']=[dict(values=list(values),count=1)]
@@ -196,8 +265,9 @@ class ExactnessE3(unittest.TestCase):
         self.check_exact(wide)
 
     def check_exact(self,model):
-        ref=enumerate_model(model);actual=Compiled(model).solve(witnesses=True)
+        ref=enumerate_model(model);compiled=Compiled(model);actual=compiled.solve(witnesses=True)
         self.assertEqual(actual['estimates'],ref['estimates']);verify_certificates(model,actual)
+        self.assertEqual(compiled.vectors(model['observation_categories'][0]['values'],list(compiled.roots)),ref['images'][0])
 
     def test_structural_diagnosis_and_physical_family(self):
         from fractions import Fraction

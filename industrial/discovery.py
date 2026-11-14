@@ -10,3 +10,9 @@ def recover(identities, records):
             raise Unsupported('unexplained required boundary')
         edges.add((source,target))
     return sorted(edges)
+
+
+def recover_and_rebind(identities,attempts,records,binder):
+    """The final observable structure binds the complete retained population."""
+    edges=recover(identities,records)
+    return edges,[binder(attempt,edges,records) for attempt in attempts]

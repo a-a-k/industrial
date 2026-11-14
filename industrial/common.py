@@ -36,11 +36,16 @@ def uniform(*parts):
 
 def write_json(path, data):
     path = Path(path); path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(canonical(data) + b'\n')
+    if path.suffix=='.gz':
+        with gzip.open(path,'wb') as stream:stream.write(canonical(data)+b'\n')
+    else:path.write_bytes(canonical(data) + b'\n')
 
 
 def read_json(path):
-    return json.loads(Path(path).read_bytes())
+    path=Path(path)
+    if path.suffix=='.gz':
+        with gzip.open(path,'rb') as stream:return json.load(stream)
+    return json.loads(path.read_bytes())
 
 
 def write_rows(path, rows):

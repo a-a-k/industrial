@@ -66,9 +66,20 @@ def bind(contract, attempts, records, deadline):
         raise ValueError('invalid attempt census')
     by_attempt = defaultdict(list)
     registered = set(attempt_ids)
+    journal = {a['id']:a for a in attempts}
+    for attempt in attempts:
+        start,stop=attempt['started_at'],attempt['observed_until']
+        if type(start) is not int or type(stop) is not int or start<0 or stop<start or not start<=deadline<=stop:
+            raise ValueError('invalid attempt boundaries or deadline outside observed horizon')
+        end=attempt.get('finished_at')
+        if end is not None and (type(end) is not int or end<start):
+            raise ValueError('invalid attempt completion timestamp')
     for record in records:
         if record['attempt'] not in registered:
             raise ValueError('unregistered attempt')
+        attempt=journal[record['attempt']];time=record.get('time')
+        if type(time) is not int or not attempt['started_at']<=time<=attempt['observed_until']:
+            continue
         if record['kind'] == 'reassign':
             raise Unsupported('reassignment')
         if 'op' in record and record['op'] not in ops:
@@ -78,7 +89,7 @@ def bind(contract, attempts, records, deadline):
                 raise Unsupported('unexplained required parent')
             if sorted(record['parents']) != sorted(ops[record['op']]['predecessors']):
                 raise Unsupported('causal relation differs from declared structure')
-        if record['kind'] in ('assignment','receipt') and record['machine'] not in ops[record['op']]['compatible_machines']:
+        if record['kind'] in ('assignment','receipt','delivery_rejected') and record['machine'] not in ops[record['op']]['compatible_machines']:
             raise Unsupported('unclassified executor')
         by_attempt[record['attempt']].append(record)
     observations = []; audits = []
@@ -87,19 +98,23 @@ def bind(contract, attempts, records, deadline):
         if attempt.get('compute_status','OK') != 'OK':
             observations.append(row); audits.append(dict(id=attempt['id'],status='COMPUTATION_UNAVAILABLE')); continue
         end = attempt.get('finished_at')
+        if end is not None and end>attempt['observed_until']:end=None
         if end is not None:
             row['timely'] = end <= deadline
         elif attempt['observed_until'] >= deadline:
             row['timely'] = False
         accepted = [r['value'] for r in rows if r['kind']=='dispatch']
         row['C_dispatch'] = consistent(accepted)
-        window_end = min(deadline,attempt['observed_until'],end if end is not None else attempt['observed_until'])
+        window_end = min(attempt['observed_until'],end if end is not None else attempt['observed_until'])
         selections = defaultdict(list);receipts_by_op = defaultdict(list);postconditions = defaultdict(list)
+        rejections=defaultdict(list)
         for record in rows:
             if record['kind']=='assignment' and record.get('closed',False):
                 selections[record['op']].append(record['machine'])
             elif record['kind']=='receipt':
                 receipts_by_op[(record['op'],record['machine'])].append(record)
+            elif record['kind']=='delivery_rejected' and record.get('final',False):
+                rejections[(record['op'],record['machine'])].append(record)
             elif record['kind']=='postcondition':
                 postconditions[record['job']].append(record['value'])
         for i,op in ops.items():
@@ -109,8 +124,9 @@ def bind(contract, attempts, records, deadline):
                 if dk in row and actual is not None:
                     row[dk] = actual == m
                 receipts = [r for r in receipts_by_op[(i,m)] if attempt['started_at'] <= r['time'] <= window_end]
-                if receipts:
-                    row[xkey(i,m)] = True
+                rejected=[r for r in rejections[(i,m)] if attempt['started_at']<=r['time']<=window_end]
+                evidence=([True] if receipts else [])+([False] if rejected else [])
+                row[xkey(i,m)] = consistent(evidence)
         for job in contract['jobs']:
             key = ckey(job)
             if key in row:
@@ -118,6 +134,38 @@ def bind(contract, attempts, records, deadline):
         observations.append(row)
         audits.append(dict(id=attempt['id'],status='SUPPORTED',known=sum(v is not None for v in row.values())))
     return proto,observations,audits
+
+
+def direct_rows(contract,attempts,records,deadline):
+    """Direct completion/deadline binding without graph or X/D construction."""
+    reject_forbidden(dict(contract=contract,attempts=attempts,records=records))
+    ids={a['id'] for a in attempts};ops={o['id']:o for o in contract['operations']}
+    if len(ids)!=len(attempts) or not attempts:raise ValueError('invalid direct census')
+    by_attempt=defaultdict(list)
+    for r in records:
+        if r['attempt'] not in ids:raise ValueError('unregistered attempt')
+        if 'op' in r and r['op'] not in ops:raise Unsupported('unexplained required operation')
+        if r['kind']=='reassign':raise Unsupported('reassignment')
+        if 'parents' in r and sorted(r['parents'])!=sorted(ops[r['op']]['predecessors']):
+            raise Unsupported('unexplained required parent')
+        by_attempt[r['attempt']].append(r)
+    keys=['C_dispatch']+[ckey(j) for j in contract['jobs']]
+    for attempt in attempts:
+        start,stop=attempt['started_at'],attempt['observed_until']
+        if not start<=deadline<=stop:raise ValueError('deadline outside observed horizon')
+        row=dict.fromkeys(keys+['timely'])
+        if attempt.get('compute_status','OK')!='OK':yield row;continue
+        end=attempt.get('finished_at')
+        if end is not None and end<=stop:row['timely']=end<=deadline
+        elif stop>=deadline:row['timely']=False
+        evidence=defaultdict(list)
+        for r in by_attempt[attempt['id']]:
+            if type(r.get('time')) is not int or not start<=r['time']<=stop:continue
+            if r['kind']=='dispatch':evidence['C_dispatch'].append(r['value'])
+            elif r['kind']=='postcondition' and r['job'] in contract['jobs']:
+                evidence[ckey(r['job'])].append(r['value'])
+        for key in keys:row[key]=consistent(evidence[key])
+        yield row
 
 
 def fit(packet, deadline):
