@@ -1,0 +1,52 @@
+{
+  "version": "industrial-sources-v1",
+  "manufacturing": {
+    "repository": "https://github.com/a-a-k/sheaft-tsfg-experiments",
+    "commit": "2baba193b14c4f432e3e76f24fcecaf4f21e89e6"
+  },
+  "simpat": {
+    "repository": "https://github.com/a-a-k/telemetry-availability-identification",
+    "commit": "61e65e4c09e25dd3c752756d07fe91ca504ece2f"
+  },
+  "tsfg": {
+    "repository": "a-a-k/ozone-tech_mb3r_lab_1084",
+    "commit": "8510baf28673758f1e437d2dbc5a51ead9843a3b",
+    "public_source": false,
+    "public_binary": false
+  },
+  "instances": {
+    "repository": "https://github.com/SchedulingLab/fjsp-instances",
+    "commit": "f960b0b75b132488ddba9ec17a3b1ce77ab751db",
+    "directory": "brandimarte"
+  },
+  "files": [
+    {
+      "path": "vendor/simpat/reference/completion_target_v1.py",
+      "sha256": "4ca03f3ecbb67804cade553dc39abeaa208898f3a0df1c36af4f0dcb36ec4999"
+    },
+    {
+      "path": "vendor/simpat/telemetry_availability/__init__.py",
+      "sha256": "8c4cb841ef12c5caa18070835bb7cf0c130ebd8f8fde94ea87651d0791e214f3"
+    },
+    {
+      "path": "vendor/simpat/telemetry_availability/cudd_comparison_v2.py",
+      "sha256": "255ceb59cc5eb74149edac8f7444a4ccfa8e9e61e7a27aa4c755d645b880e8f0"
+    },
+    {
+      "path": "vendor/simpat/telemetry_availability/exact_backend_common_v1.py",
+      "sha256": "424d2c9325a7c065a6f2f0ef04495da9ada199ddaf595d4fa43aa19907221d84"
+    },
+    {
+      "path": "vendor/simpat/telemetry_availability/graph_execution_bdd_v1.py",
+      "sha256": "e8e70e48ea3e3e39cba76fdd1c97768f8209991f96c6a488be791bd8e2520b2c"
+    },
+    {
+      "path": "vendor/simpat/telemetry_availability/graph_execution_model_v1.py",
+      "sha256": "db60c0049c29c86f59137acfded9d7f9ab47f6bb63a7a230ee382458f452b361"
+    },
+    {
+      "path": "vendor/simpat/telemetry_availability/graph_replay_v3.py",
+      "sha256": "e65b5c3321c47448fc855e16b45fae439a069c3a0232a8f3c9b96cd03c275fb5"
+    }
+  ]
+}

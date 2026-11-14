@@ -1,0 +1,13 @@
+*.pdf
+__pycache__/
+*.py[cod]
+.private/
+output/
+build/
+*.egg-info/
+.venv/
+.pytest_cache/
+AGENTS.md
+SKILL.md
+skills/
+agents/

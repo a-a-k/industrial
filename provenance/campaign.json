@@ -1,0 +1,20 @@
+{
+  "protocol": "industrial-e1-e6-v1",
+  "seed_domain": "20261114-industrial-e1-e6-v1",
+  "monetary_budget": 0,
+  "runner_hours_limit": 72,
+  "job_minutes_limit": 90,
+  "process_seconds_limit": 300,
+  "max_parallel": 4,
+  "replications_calibration": 512,
+  "replications_validation": 1024,
+  "tsfg_validation_per_condition": 128,
+  "observation_modes": ["available", "mcar10", "mcar30", "informative", "trace_loss"],
+  "deadlines_relative_to_nominal": ["1", "11/10", "5/4"],
+  "primary_deadline": "11/10",
+  "horizon_relative_to_nominal": "5/4",
+  "family": "cartesian_known_coordinate_fibers",
+  "warmups": 1,
+  "measured_repeats": 5,
+  "measurement_loads": [1000, 10000, 100000]
+}
