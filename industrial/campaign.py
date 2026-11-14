@@ -139,9 +139,10 @@ def acquire(preflight_tag,condition,split,seal_tag=None,binding_gate=None):
     if mismatches:raise SystemExit('Engine mismatches retained; bank cannot be accepted')
 
 
-def fit_observations(observation_tag):
+def fit_observations(observation_tag,validation_reanalysis=False):
     source,receipt=fetch(observation_tag,'output/input-observations');index=read_json(source/'index.json')
-    if index['split']!='calibration':raise ValueError('only calibration observations identify forecasts')
+    expected='validation' if validation_reanalysis else 'calibration'
+    if index['split']!=expected:raise ValueError('wrong sample split for analysis role')
     for name,expected in index['implementation'].items():
         if digest(Path(name).read_bytes())!=expected:raise ValueError('fixed identification implementation changed')
     root=Path('output/fit');root.mkdir(parents=True,exist_ok=True);reports=[];processes=[]
@@ -177,6 +178,7 @@ def fit_observations(observation_tag):
     status='PASS' if all(r['status']=='PASS' for r in reports) and len(refinement)==3 else 'PARTIAL'
     write_json(root/'fit.json',dict(status=status,condition=index['condition'],observation_release=observation_tag,
         observations=index,results=reports,processes=processes,refinement_deadlines=refinement,
+        role='validation_descriptive_reanalysis' if validation_reanalysis else 'calibration_forecast',
         external_outcomes_accessed=False,commit=os.environ['GITHUB_SHA'],run_id=os.environ['GITHUB_RUN_ID']))
 
 
@@ -187,10 +189,11 @@ def main():
     a.add_argument('--split',choices=['calibration','validation'],required=True);a.add_argument('--seal')
     a.add_argument('--binding-gate')
     a=sub.add_parser('fit');a.add_argument('--observations',required=True)
+    a.add_argument('--validation-reanalysis',action='store_true')
     a=p.parse_args()
     if a.task=='preflight':preflight(a.qualification)
     elif a.task=='acquire':acquire(a.preflight,a.condition,a.split,a.seal,a.binding_gate)
-    else:fit_observations(a.observations)
+    else:fit_observations(a.observations,a.validation_reanalysis)
 
 
 if __name__=='__main__':main()

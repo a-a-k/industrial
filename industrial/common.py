@@ -37,7 +37,8 @@ def uniform(*parts):
 def write_json(path, data):
     path = Path(path); path.parent.mkdir(parents=True, exist_ok=True)
     if path.suffix=='.gz':
-        with gzip.open(path,'wb') as stream:stream.write(canonical(data)+b'\n')
+        with path.open('wb') as raw:
+            with gzip.GzipFile(filename='',fileobj=raw,mode='wb',mtime=0) as stream:stream.write(canonical(data)+b'\n')
     else:path.write_bytes(canonical(data) + b'\n')
 
 
@@ -50,10 +51,12 @@ def read_json(path):
 
 def write_rows(path, rows):
     path = Path(path); path.parent.mkdir(parents=True, exist_ok=True)
-    opener = gzip.open if path.suffix == '.gz' else open
-    with opener(path, 'wb') as stream:
-        for row in rows:
-            stream.write(canonical(row) + b'\n')
+    with path.open('wb') as raw:
+        if path.suffix=='.gz':
+            with gzip.GzipFile(filename='',fileobj=raw,mode='wb',mtime=0) as stream:
+                for row in rows:stream.write(canonical(row)+b'\n')
+        else:
+            for row in rows:raw.write(canonical(row)+b'\n')
 
 
 def read_rows(path):

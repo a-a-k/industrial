@@ -1,0 +1,16 @@
+{
+  "version": "industrial-cost-panel-v1",
+  "conditions": ["Mk01-F1", "Mk10-F2"],
+  "observation_modes": ["available", "mcar30"],
+  "deadline_label": "110",
+  "loads": [1000, 10000, 100000],
+  "pairs": {"R": [["full", "projection"], ["full", "direct"]], "panel": [["full", "combination"]]},
+  "saved_R_pairs": [["full", "direct"]],
+  "saved_queries_per_process": 10,
+  "warmup_processes_per_method": 1,
+  "measured_fresh_processes_per_method": 5,
+  "runner": "standard ubuntu-24.04",
+  "cpus": 1,
+  "memory_bytes": 4294967296,
+  "process_timeout_s": 300
+}

@@ -23,9 +23,13 @@ def simulate(data, scenarios, root, engine, horizon, chunk=128):
         process=execute(command,env=env)
         process.update(engine=engine,first=begin,attempts=[s['id'] for s in batch])
         if output.exists():
-            for row in read_rows(output):
-                if row['scenario_id'] in results: raise ValueError('duplicate trajectory')
-                results[row['scenario_id']]=row
+            try:
+                for row in read_rows(output):
+                    if row['scenario_id'] in results: raise ValueError('duplicate trajectory')
+                    results[row['scenario_id']]=row
+            except (ValueError,EOFError) as error:
+                process['output_error']=str(error)
+                if process['status']=='OK':process['status']='INVALID_OUTPUT'
         process['completed']=sum(s['id'] in results for s in batch)
         processes.append(process)
     return results,processes

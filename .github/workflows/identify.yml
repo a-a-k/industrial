@@ -5,6 +5,10 @@ on:
       observation_tags:
         type: string
         required: true
+      purpose:
+        type: choice
+        options: [forecast, validation_reanalysis]
+        default: forecast
 permissions:
   contents: write
   actions: read
@@ -31,6 +35,7 @@ jobs:
       options: --cpus=1 --memory=4g --memory-swap=4g
     env:
       OBSERVATIONS: ${{ matrix.observations }}
+      PURPOSE: ${{ inputs.purpose }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
@@ -53,10 +58,19 @@ jobs:
           cmp requirements.lock output/environment/requirements.lock
           python -m pip install --no-index --find-links output/environment/wheels --require-hashes -r requirements.lock
       - name: Identify and replay without product accounts or calendars
-        run: python -m industrial.campaign fit --observations "$OBSERVATIONS"
+        run: |
+          if [ "$PURPOSE" = validation_reanalysis ]; then
+            python -m industrial.campaign fit --observations "$OBSERVATIONS" --validation-reanalysis
+          else
+            python -m industrial.campaign fit --observations "$OBSERVATIONS"
+          fi
       - name: Preserve fitted models and failures
         if: always()
         run: |
           mkdir -p output/fit/provenance
           cp output/budget.json output/fit/provenance/ || true
-          python scripts/publish.py --name "fit-${OBSERVATIONS#calibration-observations-}" --path output/fit
+          if [ "$PURPOSE" = validation_reanalysis ]; then
+            python scripts/publish.py --name "reanalysis-${OBSERVATIONS#validation-observations-}" --path output/fit
+          else
+            python scripts/publish.py --name "fit-${OBSERVATIONS#calibration-observations-}" --path output/fit
+          fi
