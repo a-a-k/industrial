@@ -62,9 +62,9 @@ def calendar(source,c0,horizon):
         up=source.expovariate(1/(2*c0));repair=source.expovariate(1/(.1*c0))
         up_sum+=up;repair_sum+=repair;cycles+=1
         clock+=max(DELTA,math.ceil(up/DELTA)*DELTA)
-        if clock >= horizon: break
+        if clock > horizon: break
         finish=clock+max(DELTA,math.ceil(repair/DELTA)*DELTA)
-        down.append((clock,min(finish,horizon)));clock=finish
+        down.append((clock,finish));clock=finish
     return down,dict(raw_up_sum=up_sum,raw_repair_sum=repair_sum,drawn_cycles=cycles)
 
 

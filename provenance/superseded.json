@@ -1,0 +1,12 @@
+{
+  "preflight-43638516486-1": {
+    "reason": "Failure-calendar boundary correction before any stochastic bank acquisition: retain repair endpoints beyond H and failures beginning exactly at H.",
+    "stochastic_results_used": false,
+    "replacement_required": true
+  },
+  "qualification-43636255823-1": {
+    "reason": "Initial debug core only; later qualification adds temporal censoring, true equal-marginal input laws, full joint images and isolated label-mutation replay.",
+    "use_for_acceptance": false,
+    "unchanged_upstream_regression_evidence_reusable": true
+  }
+}

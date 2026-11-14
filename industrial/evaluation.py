@@ -93,7 +93,13 @@ def evaluate(registry):
                         if result['status']!='PASS' or not known_test:
                             rows.append(dict(base,status='UNAVAILABLE',reason='missing fitted result or independent outcomes'));continue
                         metrics=forecast_metrics(result['estimates'][target],sum(test_y.values()),1024)
+                        baseline=None
+                        if source_frequency is not None:
+                            k=sum(source_labels.values())
+                            baseline=forecast_metrics(dict(guaranteed=k,possible=k,samples=512,
+                                lower=k/512,upper=k/512),sum(test_y.values()),1024)
                         rows.append(dict(base,status='OK',**metrics,calibration_success_frequency=source_frequency,
+                            calibration_frequency_metrics=baseline,
                             calibration_frequency_role='external comparator; not an identifier input'))
     required_banks=len(all_banks)==40 and all(r['status']=='COMPLETE' for r in all_banks)
     required_fits=len(fits)==20 and all(r['status']=='PASS' for r in fits.values())

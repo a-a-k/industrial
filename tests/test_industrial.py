@@ -1,4 +1,5 @@
 from copy import deepcopy
+from collections import defaultdict
 from itertools import product
 from pathlib import Path
 import unittest
@@ -59,6 +60,8 @@ class SemanticsE1(unittest.TestCase):
             ('initial_recovery',tiny(),[[0,0,200]],500,500,True,True),
             ('suspend_resume',tiny(),[[0,100,300]],500,500,True,True),
             ('unresolved',tiny((600,)),[],500,500,None,False),
+            ('repair_at_horizon',tiny(),[[0,0,500]],500,500,None,False),
+            ('failure_at_horizon',tiny((500,100)),[[0,500,1500]],500,500,None,False),
             ('exact_horizon',tiny((500,)),[],500,500,True,True),
             ('optional_delay',tiny((200,200),optional=True),[],500,300,True,False)]
         summary=[]
@@ -74,6 +77,9 @@ class SemanticsE1(unittest.TestCase):
                 if name=='initial_recovery':self.assertEqual(trajectory['start'],[200])
                 if name=='suspend_resume':self.assertEqual(trajectory['finish'],[400])
                 if name=='unresolved':self.assertIsNone(trajectory['finish'][0])
+                if name=='repair_at_horizon':self.assertEqual(trajectory['start'],[500])
+                if name=='failure_at_horizon':
+                    self.assertEqual(trajectory['finish'][0],500);self.assertIsNone(trajectory['start'][1])
                 summary.append(dict(case=name,C=c,T=t,Y=y))
         write_json('output/qualification/E1-cases.json',summary)
 
@@ -337,6 +343,33 @@ class StatisticalCounts(unittest.TestCase):
         answer=forecast_metrics(prediction,8,10)
         self.assertIsNone(answer['signed_error']);self.assertAlmostEqual(answer['distance_to_frequency'],.1)
         self.assertLess(answer['discrepancy_outer95'][0],answer['discrepancy_outer95'][1])
+
+
+class FailureProcess(unittest.TestCase):
+    def test_full_calendar_endpoints_and_events_at_horizon(self):
+        from industrial.inputs import calendar
+        class Fixed:
+            def __init__(self,values):self.values=iter(values)
+            def expovariate(self,rate):return next(self.values)
+        self.assertEqual(calendar(Fixed([100,1000]),400,500)[0],[(100,1100)])
+        self.assertEqual(calendar(Fixed([500,1000]),400,500)[0],[(500,1500)])
+        self.assertEqual(calendar(Fixed([501,1000]),400,500)[0],[])
+
+    def test_f1_f2_streams_and_grid(self):
+        from industrial.inputs import scenarios
+        data=tiny((200,200),machines=[0,1])
+        for law in ('F1','F2'):
+            rows=scenarios(data,law,'calibration',32)
+            self.assertEqual(len({r['id'] for r in rows}),32)
+            self.assertEqual(rows,scenarios(data,law,'calibration',32))
+            for row_ in rows:
+                histories=defaultdict(list)
+                for machine,start,end in row_['failures']:
+                    self.assertGreater(start,0);self.assertEqual(start%5,0);self.assertEqual(end%5,0)
+                    self.assertGreater(end,start);histories[machine].append((start,end))
+                if row_['shared_calendar']:
+                    self.assertEqual(histories[0],histories[1])
+                if law=='F1':self.assertFalse(row_['shared_calendar'])
 
 
 if __name__=='__main__':unittest.main()
