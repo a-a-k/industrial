@@ -4,7 +4,7 @@ on:
     inputs:
       task:
         type: choice
-        options: [seal, evaluate, report]
+        options: [analysis_revision, seal, evaluate, report]
         required: true
       registry:
         type: string
@@ -52,13 +52,18 @@ jobs:
           python -c 'import os,json;from pathlib import Path;Path("output/registry.json").write_text(json.dumps(json.loads(os.environ["REGISTRY"]),sort_keys=True))'
           if [ "$TASK" = report ]; then
             python -m industrial.report output/registry.json
+          elif [ "$TASK" = analysis_revision ]; then
+            python -m industrial.analysis_revision output/registry.json
           else
             python -m industrial.evaluation "$TASK" output/registry.json
           fi
       - name: Preserve sealed predictions or independent evaluation
         if: always()
         run: |
-          if [ "$TASK" = seal ]; then
+          if [ "$TASK" = analysis_revision ]; then
+            mkdir -p output/analysis-revision
+            python scripts/publish.py --name analysis-revision --path output/analysis-revision
+          elif [ "$TASK" = seal ]; then
             mkdir -p output/seal
             python scripts/publish.py --name seal --path output/seal
           elif [ "$TASK" = evaluate ]; then

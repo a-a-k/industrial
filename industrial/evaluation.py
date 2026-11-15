@@ -13,8 +13,13 @@ from .statistics import forecast_metrics
 CONDITIONS=[f'Mk{i:02d}-F{law}' for i in range(1,11) for law in (1,2)]
 
 
-def seal(tags):
+def seal(tags,revision_tag=None):
     root=Path('output/seal');root.mkdir(parents=True,exist_ok=True);entries={}
+    if Path('provenance/analysis_compatibility.json').exists():
+        if not revision_tag:raise ValueError('analysis replacement requires complete equivalence audit before sealing')
+        revised,_=fetch(revision_tag,'output/seal-analysis-revision');revision=read_json(revised/'revision.json')
+        if revision['status']!='PASS' or set(revision['new_fits'])!=set(tags):
+            raise ValueError('analysis replacement verification does not cover these forecasts')
     for index,tag in enumerate(tags):
         source,receipt=fetch(tag,f'output/seal-input-{index}')
         report=read_json(source/'fit.json');condition=report['condition']
@@ -26,6 +31,7 @@ def seal(tags):
             cases=[dict(case=r['case'],status=r['status'],estimates=r.get('estimates')) for r in report['results']])
     if set(entries)!=set(CONDITIONS):raise ValueError('all twenty conditions must be represented before validation')
     write_json(root/'seal.json',dict(status='SEALED',conditions=entries,
+        analysis_revision=revision_tag,
         complete_predictions=all(v['status']=='PASS' for v in entries.values()),
         sealed_at=dt.datetime.now(dt.timezone.utc).isoformat(),commit=os.environ['GITHUB_SHA'],
         run_id=os.environ['GITHUB_RUN_ID'],selection_after_validation=False))
@@ -62,7 +68,7 @@ def evaluate(registry):
         cal_report,cal_ledger,data=banks[(condition,'calibration')]
         val_report,val_ledger,_=banks[(condition,'validation')]
         jobs=[j['id'] for j in data['jobs'] if not j.get('optional',False)]
-        for label,mult in (('100',(1,1)),('110',(11,10)),('125',(5,4)):
+        for label,mult in (('100',(1,1)),('110',(11,10)),('125',(5,4))):
             d=data['nominal_makespan']*mult[0]//mult[1]
             cal_y=outcomes(cal_ledger,jobs,d);test_y=outcomes(val_ledger,jobs,d)
             known_cal=all(v is not None for v in cal_y.values()) and len(cal_y)==512
@@ -124,7 +130,7 @@ def evaluate(registry):
 def main():
     actions_only();p=argparse.ArgumentParser();p.add_argument('task',choices=['seal','evaluate']);p.add_argument('registry')
     a=p.parse_args();registry=read_json(a.registry)
-    if a.task=='seal':seal(registry['fits'])
+    if a.task=='seal':seal(registry['fits'],registry.get('analysis_revision'))
     else:evaluate(registry)
 
 

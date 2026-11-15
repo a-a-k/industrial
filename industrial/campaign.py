@@ -136,7 +136,7 @@ def acquire(preflight_tag,condition,split,seal_tag=None,binding_gate=None):
     write_json(bank/'bank.json',report)
     write_json(obs/'index.json',dict(condition=condition,split=split,preflight=preflight_tag,
         schema_sha256=digest(canonical(schema(packet['contract']))),cases=index,registered=count,
-        permitted_inputs_only=True,implementation=qualified['implementation'],bank_status=status,
+        permitted_inputs_only=True,implementation=qualified['implementation'],analysis_qualification=qualified['analysis_qualification'],bank_status=status,
         bank_admission='INVALID' if mismatches else 'VALID'))
     if mismatches:raise SystemExit('Engine mismatches retained; bank cannot be accepted')
 
@@ -182,7 +182,7 @@ def fit_observations(observation_tag,validation_reanalysis=False):
     write_json(root/'fit.json',dict(status=status,condition=index['condition'],observation_release=observation_tag,
         observations=index,results=reports,processes=processes,refinement_deadlines=refinement,
         role='validation_descriptive_reanalysis' if validation_reanalysis else 'calibration_forecast',
-        analysis_qualification=revision,implementation=current,
+        analysis_qualification=revision or index.get('analysis_qualification'),implementation=current,
         external_outcomes_accessed=False,commit=os.environ['GITHUB_SHA'],run_id=os.environ['GITHUB_RUN_ID']))
 
 

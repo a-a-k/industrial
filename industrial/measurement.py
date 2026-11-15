@@ -84,6 +84,7 @@ def run_method(folder,method,query,deadline,result_path,saved=None):
         else:raise ValueError('unknown cost query')
         phases['analysis_s']=time.perf_counter()-stored
     report=dict(status='OK',method=method,query=query,estimates=estimates,
+        analysis_source_sha256=digest(Path('industrial/solver.py').read_bytes()),
         signature=digest(canonical(estimates)),phases=phases,wall_internal_s=time.perf_counter()-started,
         cpu_s=resource.getrusage(resource.RUSAGE_SELF).ru_utime+resource.getrusage(resource.RUSAGE_SELF).ru_stime,
         peak_rss_bytes=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss*1024,
@@ -147,6 +148,7 @@ def paired(case,observation_tag,fit_tag):
             median_wall_s=statistics.median(r['process']['wall_s'] for r in good) if len(good)==5 else None,
             median_completed_only_diagnostic_s=statistics.median(r['process']['wall_s'] for r in good) if good else None)
     write_json(root/'measurement.json',dict(case=case,status='COMPLETE' if complete else 'PARTIAL',condition=condition,
+        analysis_source_sha256=digest(Path('industrial/solver.py').read_bytes()),
         observation_release=observation_tag,fit_release=fit_tag,preparation=prep,shared_setup_s=setup_s,
         load=read_json(root/'load/load.json') if (root/'load/load.json').exists() else None,
         attempts=attempts,summary=summary,paired_complete=matched,mismatched_repeats=mismatches,
