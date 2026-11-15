@@ -1,0 +1,85 @@
+name: Strong CP-SAT planning baseline
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: string
+        default: ''
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: industrial-cost-single-retry
+  cancel-in-progress: false
+env:
+  GH_REPO: ${{ github.repository }}
+  PYTHONPATH: .:vendor/simpat
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  GOMAXPROCS: '1'
+jobs:
+  baseline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container:
+      image: python:3.11.16-bookworm@sha256:b99029c95d3d37fb1e4e76d287f7984373dca77c665885986e31b2c95260c13c
+      options: --cpus=1 --memory=4g --memory-swap=4g
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PROVIDED_CP_ENVIRONMENT: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: python scripts/budget.py
+      - run: apt-get update -qq && apt-get install -y --no-install-recommends gh
+      - name: Install original frozen scientific environment
+        run: |
+          gh release download industrial-environment-v1 --pattern environment.tar.gz --dir output
+          tar -xzf output/environment.tar.gz -C output
+          cmp requirements.lock output/environment/requirements.lock
+          python -m pip install --no-index --find-links output/environment/wheels --require-hashes -r requirements.lock
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.0'
+          cache: false
+      - name: Fetch original S1 and compile independent participants
+        env:
+          TSFG_SOURCE_SSH_KEY: ${{ secrets.TSFG_SOURCE_SSH_KEY }}
+        run: |
+          python scripts/fetch_tsfg.py
+          python -c 'from industrial.releases import fetch;fetch("preflight-43639035427-1","output/cpsat-build-preflight")'
+          export TSFG_TEST_EVIDENCE=output/cpsat-build-preflight/preflight/provenance/tsfg-provenance.json
+          python scripts/build.py
+      - name: Freeze and install isolated CP-SAT environment
+        run: |
+          if [ -z "$PROVIDED_CP_ENVIRONMENT" ]; then
+            python scripts/bootstrap_cpsat.py
+            python scripts/publish.py --name cpsat-environment --path output/cpsat-environment
+            echo "CP_ENVIRONMENT=cpsat-environment-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
+          else
+            python -c 'import os,shutil;from industrial.releases import fetch;source,_=fetch(os.environ["PROVIDED_CP_ENVIRONMENT"],"output/cpsat-env-input");shutil.copytree(source,"output/cpsat-environment")'
+            echo "CP_ENVIRONMENT=$PROVIDED_CP_ENVIRONMENT" >> "$GITHUB_ENV"
+          fi
+          python -m venv .private/cpsat-venv
+          .private/cpsat-venv/bin/python -m pip install --no-index --find-links output/cpsat-environment/wheels --require-hashes -r output/cpsat-environment/requirements.lock
+      - name: Qualify the nominal model and freeze all three plans
+        run: |
+          .private/cpsat-venv/bin/python -m unittest tests.test_cpsat -v
+          python -m industrial.cpsat_campaign generate preflight-43639035427-1 .private/cpsat-venv/bin/python "$CP_ENVIRONMENT"
+          python scripts/publish.py --name cpsat-plans --path output/cpsat-plans
+      - name: Independent fresh holdout and numerical report
+        run: |
+          python -m industrial.cpsat_campaign validate "cpsat-plans-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          python -m industrial.cpsat_campaign report
+      - name: Preserve outcomes and failures
+        if: always()
+        run: |
+          mkdir -p output/cpsat-report/provenance
+          cp output/budget.json output/cpsat-report/provenance/ || true
+          cp build/*.json output/cpsat-report/provenance/ || true
+          if [ -d output/cpsat-tests ]; then cp -r output/cpsat-tests output/cpsat-report/provenance/; fi
+          if [ -d output/cpsat-validation ]; then cp -r output/cpsat-validation output/cpsat-report/; fi
+          if [ -d output/cpsat-plans ]; then cp -r output/cpsat-plans output/cpsat-report/; fi
+          python scripts/publish.py --name cpsat-report --path output/cpsat-report
