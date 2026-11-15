@@ -24,7 +24,8 @@ def search_one(problem_path,folder,objective,seed):
     started=time.perf_counter();root=Path(folder);root.mkdir(parents=True,exist_ok=True)
     problem=read_json(problem_path);data=problem['dataset'];spec=problem['spec'];validate_problem(data)
     deadline=problem['deadline'];n=spec['search_replications_per_law']
-    calendars={law:scenarios(data,law,spec['search_split'],n) for law in spec['laws']}
+    needed=[] if objective=='nominal' else (['F1'] if objective=='deadline_f1' else spec['laws'])
+    calendars={law:scenarios(data,law,spec['search_split'],n) for law in needed}
     write_json(root/'search-calendars.json.gz',calendars)
     work=root/'last-evaluation';failures=0
     def evaluate(plan,which):
@@ -38,7 +39,7 @@ def search_one(problem_path,folder,objective,seed):
                 if len(trajectories)!=n or any(p['status']!='OK' for p in processes):
                     raise ValueError('candidate evaluation unavailable: '+json.dumps(processes))
                 for scenario in calendars[law]:check_physics(plan,scenario,trajectories[scenario['id']])
-                labels=outcomes(product_ledger(plan,calendars[law],trajectories),[j['id'] for j in plan['jobs']],deadline)
+                labels=outcomes(product_ledger(plan,calendars[law],trajectories),[j['id'] for j in plan['jobs'] if not j.get('optional',False)],deadline)
                 if len(labels)!=n or any(v is None for v in labels.values()):raise ValueError('unknown candidate outcomes')
                 score['p_'+law.lower()]=sum(labels.values())/n
                 score[law]=dict(samples=n,successes=sum(labels.values()),outcomes=labels,processes=processes)
@@ -121,7 +122,7 @@ def validate(registry_path,instance):
     if set(generations)!=set(spec['instances']):raise ValueError('all generation instances must be frozen first')
     write_json(root/'plan-seal.json',dict(generations=seal,role='all immutable generated plans before new holdout'))
     source=folders[instance];generation=generations[instance];problem=read_json(source/'problem.json')
-    data=problem['dataset'];deadline=problem['deadline'];jobs=[j['id'] for j in data['jobs']]
+    data=problem['dataset'];deadline=problem['deadline'];jobs=[j['id'] for j in data['jobs'] if not j.get('optional',False)]
     plans={plan_identity(data):dict(dataset=data,aliases=['original'],nominal_makespan=data['nominal_makespan'])}
     for result in generation['results']:
         for index,selected in enumerate(result['result']['selected']):

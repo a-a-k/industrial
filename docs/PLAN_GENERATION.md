@@ -48,3 +48,19 @@ reusing scenarios across plans does not increase the number of replications.
 This block measures the practical effect of choosing an objective for a known
 search method. It does not establish optimizer novelty or superiority over
 stochastic scheduling literature. E1–E6 acceptance remains separate.
+
+The callable interface is `planning.generator.search(data, objective, evaluator,
+identity, budget_s, seed)`. For the pinned direct simulator, execute on Actions:
+
+```sh
+python -m industrial.plan_campaign search problem.json --folder output/generated \
+  --objective worst_regime --seed 1701
+```
+
+`problem.json` contains `dataset` (operations with compatible machine/work
+alternatives, predecessors and releases; machine queues and a starting schedule),
+`deadline` in the same integer ticks, and `spec` following
+`provenance/plan_generation.json`. The starting schedule defines the fixed
+reference scale. Search produces new assignments and queues. The instance must
+use the supported fixed-assignment, suspend/resume execution contract; arbitrary
+new production rules require a separate validated adapter.
