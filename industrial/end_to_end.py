@@ -279,7 +279,7 @@ def measure(instance,runner):
 def report():
     import statistics
     from .releases import fetch
-    root=ROOT/'report';root.mkdir(parents=True,exist_ok=True);runs=[];missing=[];rows=[]
+    root=ROOT/'report';root.mkdir(parents=True,exist_ok=True);runs=[];missing=[];rows=[];all_records=[]
     for instance in spec()['instances']:
         for runner in spec()['runner_repetitions']:
             tag=f'end-to-end-{instance}-{runner}-{suffix()}'
@@ -289,6 +289,7 @@ def report():
                 build_record=read_json(folder/'build.json')
                 if measurement['profile']!=spec() or measurement['source']!=fingerprint():
                     raise ValueError('unqualified measurement version')
+                all_records.extend(measurement['records'])
                 runs.append(dict(instance=instance,runner=runner,release=tag,
                     archive_sha256=receipt['archive_sha256'],status=measurement['status'],
                     first_use_preparation_s=build_record['first_use_preparation_s']))
@@ -335,8 +336,14 @@ def report():
     verdict='PARTIAL' if not complete else ('MEASURED_ADVANTAGE_IN_NAMED_CONDITIONS' if any(c['measured_advantage'] for c in comparisons) else 'NO_ESTABLISHED_ADVANTAGE')
     result=dict(status='COMPLETE' if complete else 'PARTIAL',verdict=verdict,profile=spec(),
         comparisons=comparisons,rows=rows,runs=runs,missing=missing,commit=os.environ['GITHUB_SHA'],
-        run_id=os.environ['GITHUB_RUN_ID'],new_independent_failure_scenarios=6144,
-        statistical_sample_per_condition=1024,expected_timed_processes_including_warmups=648)
+        run_id=os.environ['GITHUB_RUN_ID'],planned_independent_failure_scenarios=6144,
+        verified_unique_failure_scenarios=1024*len({(r['instance'],r['law']) for r in all_records}),
+        statistical_sample_per_condition=1024,expected_timed_processes_including_warmups=648,
+        observed_process_attempts=len(all_records),
+        observed_complete_processes=sum(r['status']=='COMPLETE' for r in all_records),
+        observed_timeouts=sum(r['status']=='TIMEOUT' for r in all_records),
+        observed_failed_or_invalid=sum(r['status'] not in ('COMPLETE','TIMEOUT') for r in all_records),
+        scheduled_processes_without_available_record=max(0,648-len(all_records)))
     write_json(root/'RESULT.json',result)
     lines=['# Полное сравнение виртуальных краш-тестов','',f'Статус: **{result["status"]}**. Вывод: **{verdict}**.','',
         'S1/SIMPAT и прямая альтернатива получают один риск и один биномиальный интервал.',
