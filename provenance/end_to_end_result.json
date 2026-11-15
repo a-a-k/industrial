@@ -1,0 +1,8 @@
+{
+  "run_id": 43755919167,
+  "source_commit": "b439a6c85ceed18bab2ed5e404f6ae614901a1b0",
+  "report_release": "end-to-end-report-43755919167-1",
+  "qualification_release": "end-to-end-qualification-43755919167-1",
+  "superseded_premeasurement_runs": [43755188457],
+  "interpretation": "descriptive full-cost comparison of existing implementations; fixed-n conditional virtual risk; no new statistical estimator or real-factory validation claim"
+}
