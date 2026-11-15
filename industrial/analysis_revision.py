@@ -41,9 +41,13 @@ def run(registry):
         folder,receipt=fetch(tag,f'output/revision-new-{index}');report=read_json(folder/'fit.json')
         if report['status']!='PASS' or report['role']!='calibration_forecast':
             raise ValueError('uniform new calibration analysis incomplete')
+        if report['implementation']['industrial/solver.py']!=manifest['new_sha256']:
+            raise ValueError('calibration fits do not use one qualified analysis version')
         condition=report['condition'];new_reports[condition]=report
         compiled=None
         for result in report['results']:
+            if result['analysis_version']!=manifest['analysis_version']:
+                raise ValueError('mixed certificate construction versions')
             case=result['case'];model=read_json(folder/case/'model.json.gz')
             if compiled is None:compiled=module.Compiled(model)
             else:

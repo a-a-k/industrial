@@ -1,4 +1,24 @@
 {
+  "analysis-run-43691658559": {
+    "reason": "Stopped before validation for a qualified equivalent certificate-construction revision; all twenty calibration fits are recomputed uniformly.",
+    "raw_results_and_elapsed_costs_retained": true,
+    "stochastic_bank_unchanged": true,
+    "use_for_final_analysis_version": false
+  },
+  "fit-Mk01-F1-43639226962-1-43639426329-1": {
+    "reason": "Valid original first-bank E4 admission; replaced as the sealed fit by the uniform v2 analysis.",
+    "use_for_initial_bank_admission": true,
+    "use_as_final_sealed_fit": false
+  },
+  "measurement-Mk01-F1-available-1000-R-full-direct-43691007509-1": {
+    "reason": "Completed development case before the uniform analysis-version revision; repeat the entire unchanged forty-case measurement panel with the qualified final version.",
+    "raw_results_and_elapsed_costs_retained": true,
+    "use_for_final_cost_acceptance": false
+  },
+  "qualification-43693493531-1": {
+    "reason": "Whole-source compilation found an unclosed tuple in evaluation.py before numerical qualification; corrected in the following qualified source version.",
+    "use_for_acceptance": false
+  },
   "preflight-43638516486-1": {
     "reason": "Failure-calendar boundary correction before any stochastic bank acquisition: retain repair endpoints beyond H and failures beginning exactly at H.",
     "stochastic_results_used": false,

@@ -22,6 +22,7 @@ def run(registry):
     q,qroot=load(registry['qualification'],'qualification.json','qualification')
     p,proot=load(registry['preflight'],'preflight.json','preflight')
     e,eroot=load(registry['evaluation'],'evaluation.json','evaluation')
+    revision,revision_root=load(registry['analysis_revision'],'revision.json','analysis-revision')
     measures=[]
     for index,tag in enumerate(registry['measurements']):
         value,folder=load(tag,'measurement.json',f'measure-{index}')
@@ -34,6 +35,10 @@ def run(registry):
                     for pair in pairs:required.append(f'{condition}:{mode}:{count}:{query}:{"-".join(pair)}')
             for pair in spec['saved_R_pairs']:required.append(f'{condition}:{mode}:512:saved_R:{"-".join(pair)}')
     by_case={m['case']:m for m in measures}
+    final_solver=read_json('provenance/analysis_compatibility.json')['new_sha256']
+    for m in measures:
+        if m.get('analysis_source_sha256')!=final_solver:
+            missing.append(dict(case=m['case'],error='cost case uses a superseded analysis version'))
     for case in required:
         if case not in by_case:missing.append(dict(case=case,error='required cost case unavailable'))
     if len(by_case)!=len(measures):missing.append(dict(error='duplicate cost case registry'))
@@ -41,7 +46,7 @@ def run(registry):
     budget=read_json('output/budget.json')
     blocks=dict(E1='PASS' if q and q['status']=='CORE_PASS' and p and p['status']=='PASS' else 'PARTIAL',
         E2='PASS' if q and q['status']=='CORE_PASS' else 'PARTIAL',
-        E3='PASS' if q and q['status']=='CORE_PASS' and p and p['status']=='PASS' else 'PARTIAL',
+        E3='PASS' if q and q['status']=='CORE_PASS' and p and p['status']=='PASS' and revision and revision['status']=='PASS' else 'PARTIAL',
         E4='PASS' if e and len(e['fit_statuses'])==20 and len(e['validation_reanalysis_statuses'])==20
             and all(v=='PASS' for v in [*e['fit_statuses'].values(),*e['validation_reanalysis_statuses'].values()]) else 'PARTIAL',
         E5='PASS' if e and e['status']=='PASS' else 'PARTIAL',
@@ -66,6 +71,7 @@ def run(registry):
     write_json(root/'RESULT.json',result)
     write_json(root/'registry.json',registry)
     write_json(root/'cost-measurements.json.gz',measures)
+    if revision is not None:write_json(root/'analysis-revision.json',revision)
     if e is not None:write_json(root/'evaluation.json.gz',e)
     # Preserve failed infrastructure jobs independently from scientific result status.
     raw=subprocess.check_output(['gh','api','--paginate',f'repos/{os.environ["GITHUB_REPOSITORY"]}/actions/runs?per_page=100',
@@ -94,6 +100,12 @@ def run(registry):
     if q:
         lines += ['',f"Квалификация: {q['tests']} тестов, ошибок {q['errors']}, неудач {q['failures']}, пропусков {q['skipped']}. "
             'Проверены независимые конечные состояния, совместные векторы целей, полные свидетели, временные границы и изолированное воспроизведение.']
+    if revision:
+        lines += ['',f"Квалифицирована эквивалентная версия построения сертификатов: {len(revision['exact_scalar_comparisons'])} "
+            f"сравнений точных старых/новых границ; {len(revision['retained_old_comparisons'])} сохранённых старых случаев совпали также по хешам входа и модели; "
+            f"повторно проверено максимальных схем: {len(revision['maximum_schemas'])}. "
+            'Все двадцать калибровочных моделей пересчитаны одной версией до открытия проверочных исходов. '
+            'Заменённые расчёты и их затраты сохранены отдельно и включены в общий бюджет кампании.']
     lines += ['', '## Независимый прогноз','',
         'Модели определены по 512 калибровочным попыткам на условие и закреплены до получения 1024 проверочных исходов. '
         'F1→F1, F1→F2 без переидентификации и переидентификация F2→F2 представлены отдельно. '

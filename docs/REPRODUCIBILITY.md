@@ -50,6 +50,13 @@ Source edits that change the qualified implementation invalidate its fingerprint
 Replaced preflight evidence remains published and is listed separately in
 `provenance/superseded.json`; it is not pooled with the primary bank.
 
+The declared certificate-only revision is the sole fingerprint exception. Its
+manifest permits replacement of `industrial/solver.py` only; binding, schema,
+family and all other qualified modules must match. Every calibration condition
+is reanalysed uniformly, all 300 old/new scalar results and retained old input/model
+hashes are compared, and maximum schemas are rechecked before forecasts are sealed.
+Its qualification and complete revision audit are explicit release dependencies.
+
 ## Release contents
 
 - `qualification-*`: exact controls, synthetic native inputs and independent

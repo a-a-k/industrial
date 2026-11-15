@@ -1,0 +1,12 @@
+{
+  "status": "QUALIFIED",
+  "path": "industrial/solver.py",
+  "old_sha256": "19527e798cb3c3f0ada72035fcd1781c34cdb0a193e292bea7d51b04c5d18df9",
+  "new_sha256": "41004782f051c894d80a6a4d1cc93ef1cad59334a086e7767181ada0adffb01b",
+  "old_commit": "b3678c102de2e6a349de642b410a7abea58828fb",
+  "qualification": "qualification-43694145363-1",
+  "analysis_version": "industrial-cudd-cofactor-witness-v2",
+  "change": "Canonical complete witnesses for constant cofactors; choose and cache ambiguous witnesses on unknown variables within one category and BDD manager.",
+  "unchanged": ["binding", "state schema", "Cartesian family", "predicates", "integer category counts", "scalar targets", "input packets"],
+  "before_validation": "Uniformly refit all twenty calibration conditions; verify all 300 old/new scalar results, every retained old case and all maximum schemas; seal only after the audit passes."
+}
