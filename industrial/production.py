@@ -95,11 +95,16 @@ def outcomes(ledger,jobs,deadline):
 def check_physics(data, scenario, trajectory):
     if len(trajectory['finish']) != len(data['operations']): raise ValueError('trajectory dimensions')
     horizon=trajectory['horizon'];down=[[] for _ in data['queues']]
+    work={op['id']:op['work'] for op in data['operations']}
+    for operation,amount in scenario.get('work_overrides',[]):
+        if operation not in work or type(amount) is not int or amount<=0:
+            raise ValueError('invalid scenario work override')
+        work[operation]=amount
     for m,a,b in scenario['failures']:down[m].append((a,b))
     for op in data['operations']:
         i=op['id'];s=trajectory['start'][i];f=trajectory['finish'][i];rem=trajectory['remaining'][i]
         if s is None:
-            if f is not None or rem!=op['work']:raise ValueError('unstarted work conservation')
+            if f is not None or rem!=work[i]:raise ValueError('unstarted work conservation')
             continue
         if s<max(op['release'],op['planned_start']) or s>horizon:raise ValueError('invalid start')
         for p in op['predecessors']:
@@ -107,7 +112,7 @@ def check_physics(data, scenario, trajectory):
         if any(a<=s<b for a,b in down[op['machine']]):raise ValueError('start in downtime')
         end=horizon if f is None else f
         service=end-s-sum(max(0,min(end,b)-max(s,a)) for a,b in down[op['machine']])
-        if service+rem!=op['work'] or rem<0 or (f is not None and (rem or f>horizon)):
+        if service+rem!=work[i] or rem<0 or (f is not None and (rem or f>horizon)):
             raise ValueError('work conservation')
     for queue in data['queues']:
         for left,right in zip(queue,queue[1:]):

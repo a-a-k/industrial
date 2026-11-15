@@ -10,7 +10,7 @@ from .common import actions_only,canonical,digest,read_json,read_rows,rng,write_
 ROOT=Path('output/end-to-end')
 METHODS=('s1_simpat','dag_direct','dag_simpat')
 SOURCES=('industrial/end_to_end.py','industrial/targets.py','industrial/statistics.py',
-         'industrial/inputs.py','planning/generator.py','engines/model.hpp',
+         'industrial/inputs.py','industrial/production.py','planning/generator.py','engines/model.hpp',
          'engines/risk_main.cpp','engines/tsfg_op/operation_adapter.go')
 
 

@@ -1,0 +1,18 @@
+{
+  "version": "end-to-end-attempt-history-v1",
+  "attempts": [
+    {
+      "run_id": 43755188457,
+      "source_commit": "9133c02cffca5fedeb4eafaa2e51bd19a5eedad7",
+      "status": "QUALIFICATION_FAILED",
+      "core_tests_passed": 26,
+      "accepted_timed_processes": 0,
+      "production_matrix_started": false,
+      "failure": "work-conservation checker used nominal operation work despite a scenario work override; native results correctly retained 40 rather than nominal 30 at horizon zero",
+      "qualification_release": "end-to-end-qualification-43755188457-1",
+      "report_release": "end-to-end-report-43755188457-1",
+      "superseded_as_primary_comparison": true,
+      "costs_retained": true
+    }
+  ]
+}
