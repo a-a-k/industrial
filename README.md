@@ -42,6 +42,12 @@ computational timeouts. Primary releases and runs are listed in
 [primary_runs.json](provenance/primary_runs.json); workflow success alone does not
 establish complete experimental acceptance.
 
+The two censored cases have also been completed in a
+[separate timeout supplement](results/timeout-extension/REPORT_RU.md): all 24
+repeat processes returned answers under a 1200-second limit. Full outputs are
+therefore available for 41 of 41 cases under two explicitly recorded limits.
+The original 300-second series and its PARTIAL status remain unchanged.
+
 At the primary deadline, the descriptive mean absolute error across ten
 instances is 2.43 percentage points for F1→F1 and 1.75 for refitted F2→F2.
 The frozen F1→F2 error is 20.71 points. Complete observations reproduce
