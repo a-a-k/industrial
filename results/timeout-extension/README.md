@@ -14,3 +14,10 @@ The two timing pairs are comparable within their respective runner. The primary
 also differed: the original R/full-projection job recorded AMD EPYC 7763, while
 its repeat recorded Intel Xeon 6975P-C. Absolute times across these runs are not
 a measurement of an implementation change. Both used a one-CPU cgroup quota.
+
+The [RSS control](RESOURCE_NOTE_RU.md) confirmed that the recorded process-lifetime
+peak can retain the launcher's pre-exec history. In these repeats the parent
+verified a 343 MB input before spawning methods. Keep the raw RSS values, but
+do not interpret them as an isolated memory peak of the algorithm or subtract
+the parent's peak. The clean algorithm-only peak cannot be recovered from
+these counters. Timing and exact-answer comparisons remain separately reported.

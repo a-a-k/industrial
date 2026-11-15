@@ -22,6 +22,7 @@
   "timeout_extension_run": 43726894373,
   "timeout_extension_process_limit_s": 1200,
   "timeout_extension_supplement_release": "timeout-supplement-43726894373-1",
+  "resource_window_diagnostic_release": "resource-window-43732275713-1",
   "plan_generation_run": 43703587587,
   "plan_validation_run": 43708009776,
   "plan_benchmark_ref": "plan-generation-v1",

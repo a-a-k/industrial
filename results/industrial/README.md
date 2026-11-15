@@ -20,3 +20,8 @@ use a 1200-second limit for both methods in each of the two censored cases.
 Their [separate protocol](../../docs/TIMEOUT_EXTENSION.md) preserves the original
 300-second results. The workflow publishes its supplement automatically after
 both jobs, including any further timeouts or failures.
+
+The later [resource-window control](../timeout-extension/RESOURCE_NOTE_RU.md)
+clarifies the lifetime covered by `ru_maxrss`: its value may include pre-exec
+launch history. It is not an isolated post-exec algorithm memory metric.
+Raw values are retained; no isolated-memory advantage is claimed from them.
