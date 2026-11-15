@@ -63,7 +63,9 @@ jobs:
           fi
           python scripts/build.py
       - name: Qualify production binding and exact analysis
-        run: python -m industrial.qualification
+        run: |
+          python -m compileall -q industrial scripts tests
+          python -m industrial.qualification
       - name: Preserve qualification evidence
         if: always()
         env:

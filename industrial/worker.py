@@ -8,7 +8,7 @@ from .binding import fit,direct_rows
 from .common import actions_only,read_json,write_json,digest,canonical
 from .model import identify
 from .oracle import verify_certificates
-from .solver import Compiled
+from .solver import Compiled,ANALYSIS_VERSION
 from .targets import query_full_r,project_full,query_reduced,direct,collapsed,AGGREGATE,conjunction
 
 
@@ -32,7 +32,7 @@ def full_fit(packet,deadline,output):
     if combo_result['estimates']!=estimates:raise ValueError('combination baseline mismatch')
     write_json(root/'combination.json.gz',combo)
     write_json(root/'reduced.json',reduced)
-    report=dict(status='PASS',deadline=deadline,samples=model['sample_count'],coordinates=len(model['signal_ids']),
+    report=dict(status='PASS',analysis_version=ANALYSIS_VERSION,deadline=deadline,samples=model['sample_count'],coordinates=len(model['signal_ids']),
         categories=len(model['observation_categories']),estimates=estimates,full_R=full,
         input_sha256=digest(canonical(packet)),model_sha256=digest(canonical(model)),
         three_paths_equal=True,combination_equal=True,verification=verification,

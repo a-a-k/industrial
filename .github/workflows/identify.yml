@@ -49,6 +49,7 @@ jobs:
             /scripts/budget.py
             /scripts/publish.py
             /requirements.lock
+            /provenance/analysis_compatibility.json
       - run: python scripts/budget.py
       - run: apt-get update -qq && apt-get install -y --no-install-recommends gh
       - name: Install immutable environment

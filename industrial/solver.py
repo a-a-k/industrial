@@ -6,6 +6,8 @@ from simpat_core.cudd_comparison_v2 import Cudd
 from .model import validate
 from .targets import estimate
 
+ANALYSIS_VERSION = 'industrial-cudd-cofactor-witness-v2'
+
 
 class Compiled:
     def __init__(self, model):
@@ -40,28 +42,41 @@ class Compiled:
         names = list(self.roots) if names is None else list(names)
         if not set(names) <= set(self.roots):
             raise ValueError('unsupported target')
-        counts = {name:[0,0] for name in names}; certs = []
+        counts = {name:[0,0] for name in names}; certs = []; native_picks=0
         for row in self.model['observation_categories']:
             known = {k:v for k,v in zip(self.model['signal_ids'],row['values']) if v is not None}
-            restricted = {name:self.bdd.let(known,self.roots[name]) for name in names}
+            unique = {root:self.bdd.let(known,root) for root in {self.roots[name] for name in names}}
+            restricted = {name:unique[self.roots[name]] for name in names}
+            if witnesses:
+                unknown = set(self.model['signal_ids'])-set(known)
+                canonical = [False if v is None else v for v in row['values']]
+                endpoint_cache = {}
             extrema = {}
             for name, root in restricted.items():
                 lo,hi = int(root == self.bdd.true),int(root != self.bdd.false)
                 counts[name][0] += row['count']*lo; counts[name][1] += row['count']*hi
                 if witnesses:
-                    endpoints = []
-                    for value in (lo,hi):
-                        region = self.bdd.cube(known) & (self.roots[name] if value else ~self.roots[name])
-                        witness = self.bdd.pick(region,care_vars=set(self.model['signal_ids']))
-                        if witness is None:
-                            raise ValueError('endpoint witness missing')
-                        endpoints.append([bool(witness[k]) for k in self.model['signal_ids']])
+                    if lo==hi:
+                        endpoints=[canonical,canonical]
+                    else:
+                        endpoints=[]
+                        for value in (lo,hi):
+                            key=(root,value)
+                            if key not in endpoint_cache:
+                                region=root if value else ~root
+                                assignment=self.bdd.pick(region,care_vars=unknown);native_picks+=1
+                                if assignment is None:raise ValueError('endpoint witness missing')
+                                complete=dict(known);complete.update(assignment)
+                                endpoint_cache[key]=[bool(complete[k]) for k in self.model['signal_ids']]
+                            endpoints.append(endpoint_cache[key])
                     extrema[name] = dict(minimum=lo,maximum=hi,
                                         lower_witness=endpoints[0],upper_witness=endpoints[1])
             if witnesses:
                 certs.append(dict(values=row['values'],count=row['count'],extrema=extrema))
         result = dict(estimates={name:estimate(*pair,self.model['sample_count']) for name,pair in counts.items()},
                       samples=self.model['sample_count'],
+                      analysis_version=ANALYSIS_VERSION,
+                      native_witness_picks=native_picks,
                       family='cartesian_known_coordinate_fibers',
                       interval_is_confidence_interval=False)
         if witnesses:

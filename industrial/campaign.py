@@ -23,11 +23,11 @@ def deadlines(data):
 
 
 def check_qualification(root):
+    from .compatibility import verify_implementation
     q=read_json(Path(root)/'qualification.json')
     if q['status']!='CORE_PASS':raise ValueError('core qualification not passed')
-    for name,expected in q['implementation'].items():
-        if digest(Path(name).read_bytes())!=expected:raise ValueError('qualified implementation changed: '+name)
-    return q
+    current,revision=verify_implementation(q['implementation'])
+    return dict(q,implementation=current,analysis_qualification=revision)
 
 
 def preflight(qualification_tag):
@@ -146,8 +146,8 @@ def fit_observations(observation_tag,validation_reanalysis=False):
     expected='validation' if validation_reanalysis else 'calibration'
     if index['split']!=expected:raise ValueError('wrong sample split for analysis role')
     if index['bank_admission']!='VALID':raise ValueError('invalid production bank cannot identify a model')
-    for name,expected in index['implementation'].items():
-        if digest(Path(name).read_bytes())!=expected:raise ValueError('fixed identification implementation changed')
+    from .compatibility import verify_implementation
+    current,revision=verify_implementation(index['implementation'])
     root=Path('output/fit');root.mkdir(parents=True,exist_ok=True);reports=[];processes=[]
     allowed={r['file'] for r in index['cases']}|{'index.json','SHA256SUMS.json'}
     if {p.name for p in source.iterdir() if p.is_file()}!=allowed:raise ValueError('unexpected identification files')
@@ -182,6 +182,7 @@ def fit_observations(observation_tag,validation_reanalysis=False):
     write_json(root/'fit.json',dict(status=status,condition=index['condition'],observation_release=observation_tag,
         observations=index,results=reports,processes=processes,refinement_deadlines=refinement,
         role='validation_descriptive_reanalysis' if validation_reanalysis else 'calibration_forecast',
+        analysis_qualification=revision,implementation=current,
         external_outcomes_accessed=False,commit=os.environ['GITHUB_SHA'],run_id=os.environ['GITHUB_RUN_ID']))
 
 
