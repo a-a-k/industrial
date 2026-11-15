@@ -31,3 +31,6 @@ The separate plan generator searches assignments and operation order under
 selectable nominal-duration, deadline-success, worst-regime and Pareto objectives.
 It reports the best schedules found under the stated budget. Its new holdout is
 separate from the already opened E1–E6 validation bank.
+
+[Frozen generated schedules](results/plans/README.md) provide the actual CSV and
+JSON outputs, their units and links to independent validation evidence.
