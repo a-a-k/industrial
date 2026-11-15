@@ -17,7 +17,9 @@
   ],
   "final_report_release": null,
   "plan_generation_run": 43703587587,
-  "plan_validation_run": null,
+  "plan_validation_run": 43705814512,
+  "plan_benchmark_ref": "plan-generation-v1",
+  "plan_generator_verification_run": null,
   "plan_report_release": null,
   "monetary_budget": 0,
   "operational_runner_hour_limit": 72
