@@ -1,0 +1,12 @@
+test_an_additional_nominal_seed_is_evaluated_under_the_requested_probability (tests.test_planning.PlanningTests.test_an_additional_nominal_seed_is_evaluated_under_the_requested_probability) ... ok
+test_budget_censored_evaluation_returns_the_previous_incumbent (tests.test_planning.PlanningTests.test_budget_censored_evaluation_returns_the_previous_incumbent) ... ok
+test_conditions_need_no_preexisting_assignments_or_schedule (tests.test_planning.PlanningTests.test_conditions_need_no_preexisting_assignments_or_schedule) ... ok
+test_every_tiny_assignment_and_priority_is_feasible_and_independent_engines_agree (tests.test_planning.PlanningTests.test_every_tiny_assignment_and_priority_is_feasible_and_independent_engines_agree) ... ok
+test_invalid_compatibility_and_cycles_are_rejected (tests.test_planning.PlanningTests.test_invalid_compatibility_and_cycles_are_rejected) ... ok
+test_paired_gain_and_loss_use_shared_attempt_ids (tests.test_planning.PlanningTests.test_paired_gain_and_loss_use_shared_attempt_ids) ... ok
+test_search_generates_new_assignments_and_preserves_best_incumbent (tests.test_planning.PlanningTests.test_search_generates_new_assignments_and_preserves_best_incumbent) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.526s
+
+OK

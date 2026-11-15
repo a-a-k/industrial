@@ -87,7 +87,24 @@ def run(registry):
         cost_cases_complete=sum(m['status']=='COMPLETE' for m in measures),
         completed_runner_hours_before_report=elapsed,runner_hour_limit=72,
         report_reservation_hours=1.5,monetary_budget=0,commit=os.environ['GITHUB_SHA'],run_id=os.environ['GITHUB_RUN_ID'])
+    forecast_summary=[]
+    if e:
+        for direction,law,regime in (('F1_to_F1','F1','same_regime'),
+                ('F1_to_F2_frozen','F2','frozen_F1_to_F2'),('F2_to_F2_refit','F2','same_regime')):
+            for mode in ('available','mcar10','mcar30','informative','trace_loss'):
+                selected=[r for r in e['forecasts'] if r['status']=='OK' and r['deadline_label']=='110'
+                    and r['target']=='execution' and r['regime']==regime
+                    and r['condition'].endswith(law) and r['mode']==mode]
+                points=[r for r in selected if r['signed_error'] is not None]
+                forecast_summary.append(dict(direction=direction,mode=mode,conditions=len(selected),point_rows=len(points),
+                    point_mean_absolute_error=statistics.mean(r['absolute_error'] for r in points) if points else None,
+                    point_mean_signed_error=statistics.mean(r['signed_error'] for r in points) if points else None,
+                    median_identification_width=statistics.median(r['prediction_width'] for r in selected) if selected else None,
+                    discrepancy_outer95_excludes_zero=sum(r['discrepancy_outer95'][0]>0 or r['discrepancy_outer95'][1]<0 for r in selected)))
+    result.update(forecast_accuracy_implied_by_block_PASS=False,
+        global_forecast_coverage_claimed=False,forecast_summary_scope='descriptive; primary deadline 110, execution target, ten instances per row')
     write_json(root/'RESULT.json',result)
+    write_json(root/'forecast-summary.json',forecast_summary)
     write_json(root/'registry.json',registry)
     write_json(root/'cost-measurements.json.gz',measures)
     write_json(root/'superseded-preparations.json.gz',retired_preparations)
@@ -156,7 +173,18 @@ def run(registry):
                 lines.append(f"| {row['condition'][:4]} | {row['condition'][-2:]} | {row['source_condition'][-2:]} | {point} | {row['validation_frequency']:.6f} | {err} |")
     lines += ['', 'Доверительные области относятся к отдельным условиям. Для вероятности используются биномиальные счётчики гарантированных/возможных успехов; '
         'для расхождения — четыре односторонние границы 98,75%. Идентификационные и доверительные интервалы имеют разный смысл. '
-        'Превосходство над калибровочной частотой не предполагается.', '', '## Вычислительные затраты','',
+        'Превосходство над калибровочной частотой не предполагается.',
+        '', '| Направление | Наблюдения | Условий | Точечных оценок | MAE точек, п.п. | Медиана ширины, п.п. | Область расхождения не содержит 0 |',
+        '|---|---|---:|---:|---:|---:|---:|']
+    for row in forecast_summary:
+        mae='—' if row['point_mean_absolute_error'] is None else f"{100*row['point_mean_absolute_error']:.2f}"
+        width='—' if row['median_identification_width'] is None else f"{100*row['median_identification_width']:.2f}"
+        lines.append(f"| {row['direction']} | {row['mode']} | {row['conditions']} | {row['point_rows']} | {mae} | {width} | {row['discrepancy_outer95_excludes_zero']} |")
+    lines += ['', 'Эта описательная сводка использует только основной срок 1,10 C0 и цель E. '
+        'Число областей, не содержащих ноль, не имеет отдельной совместной гарантии для всей таблицы. '
+        'PASS блока E5 означает выполнение обязательных вычислений и проверок, а не точность всех прогнозов. '
+        'При потере записей границы могут стать широкими; изменение режима может потребовать переидентификации.',
+        '', '## Вычислительные затраты','',
         f"Обязательных парных случаев: {len(required)}; получено {len(by_case)}; полностью завершено {result['cost_cases_complete']}. "
         f"Тайм-аутов: {counters['measurement_timeouts']}; ошибок процессов: {counters['measurement_failed']}; незапущенных повторов: {counters['measurement_unrun']}.",
         f"В итоговых случаях подготовки нагрузки: тайм-аутов {counters['preparation_timeouts']}; ошибок {counters['preparation_failed']}. "

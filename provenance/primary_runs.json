@@ -28,6 +28,8 @@
   "cpsat_environment_release": "cpsat-environment-43719097005-1",
   "cpsat_generation_release": "cpsat-plans-43719097005-1",
   "cpsat_validation_report_release": "cpsat-report-43719097005-1",
+  "cpsat_nominal_interface_verification_run": 43720472023,
+  "cpsat_all_objectives_interface_verification_run": 43720771163,
   "monetary_budget": 0,
   "operational_runner_hour_limit": 72
 }
