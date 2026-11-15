@@ -1,4 +1,11 @@
 {
+  "planner-comparison-run-43730585184": {
+    "reason": "Source compilation detected an unterminated report string before any optimizer or holdout execution. Correct the report syntax and repeat qualification with the same frozen comparison protocol.",
+    "optimization_attempts": 0,
+    "holdout_opened": false,
+    "elapsed_costs_and_logs_retained": true,
+    "use_for_acceptance": false
+  },
   "measurement-Mk10-F2-available-100000-R-full-projection-43709223426-1": {
     "reason": "Replay preparation exceeded 300 seconds before any method process started. An exact-byte-qualified template preparation repeated the same case with the unchanged method code and process limit.",
     "replacement": "measurement-Mk10-F2-available-100000-R-full-projection-43713672472-1",
