@@ -34,6 +34,14 @@ receipt.write_text(json.dumps(dict(name=a.name,commit=os.environ['GITHUB_SHA'],r
 parts.append(receipt)
 for start in range(0,len(parts),900):
     selected=parts[start:start+900];tag=base+(f'-volume{start//900:03d}' if start else '')
-    subprocess.run(['gh','release','create',tag,*map(str,selected),'--repo',os.environ['GITHUB_REPOSITORY'],'--target',os.environ['GITHUB_SHA'],
+    repo=os.environ['GITHUB_REPOSITORY']
+    reference=subprocess.run(['gh','api',f'repos/{repo}/git/ref/tags/{tag}'],capture_output=True,text=True)
+    if reference.returncode:
+        subprocess.run(['gh','api',f'repos/{repo}/git/refs','--method','POST','--input','-'],
+            input=json.dumps(dict(ref='refs/tags/'+tag,sha=os.environ['GITHUB_SHA'])),text=True,check=True)
+        reference=subprocess.run(['gh','api',f'repos/{repo}/git/ref/tags/{tag}'],capture_output=True,text=True,check=True)
+    if json.loads(reference.stdout)['object']['sha']!=os.environ['GITHUB_SHA']:
+        raise SystemExit('Release tag does not identify the calculation source')
+    subprocess.run(['gh','release','create',tag,*map(str,selected),'--repo',repo,'--verify-tag',
         '--prerelease','--title',base,'--notes','Versioned experimental evidence. See protocol and SHA256SUMS.json.'],check=True)
 print(base)
