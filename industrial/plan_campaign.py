@@ -207,12 +207,26 @@ def validate(registry_path,instance):
 
 def report(registry_path):
     registry=read_json(registry_path);root=Path('output/plan-report');root.mkdir(parents=True,exist_ok=True)
-    records=[];rows=[];comparisons=[];missing=[]
+    records=[];rows=[];comparisons=[];missing=[];references=[]
+    reference_rule=read_json('provenance/plan_reference.json')
     for index,tag in enumerate(registry['validations']):
         try:
             folder,_=fetch(tag,f'output/plan-report-input-{index}');record=read_json(folder/'validation.json')
         except Exception as error:missing.append(dict(release=tag,error=str(error)));continue
         records.append(record)
+        if {g['release'] for g in record['generations']}!=set(reference_rule['generations']):
+            raise ValueError('nominal reference was frozen for different generated schedules')
+        baseline=min(record['plans'],key=lambda p:(p['nominal_makespan'],p['plan_sha256']))
+        reference_cost=sum(e['process']['wall_s'] for e in record['generation']['results'])
+        references.append(dict(instance=record['instance'],name='nominal_best_frozen',
+            plan_sha256=baseline['plan_sha256'],aliases=baseline['aliases'],
+            nominal_makespan=baseline['nominal_makespan'],all_generation_wall_s=reference_cost))
+        for plan in record['plans']:
+            for alias in plan['aliases']:
+                if alias=='original':continue
+                for law in ('F1','F2'):
+                    value=paired_difference(plan['regimes'][law]['outcomes'],baseline['regimes'][law]['outcomes'])
+                    comparisons.append(dict(instance=record['instance'],plan=alias,reference='nominal_best_frozen',law=law,**value))
         for plan in record['plans']:
             for alias in plan['aliases']:
                 for law,value in plan['regimes'].items():
@@ -230,6 +244,7 @@ def report(registry_path):
         per_regime_holdout=spec['validation_replications_per_law'],global_optimality_claimed=False,
         new_optimizer_or_model_advantage_claimed=False,commit=os.environ['GITHUB_SHA'],run_id=os.environ['GITHUB_RUN_ID'])
     write_json(root/'RESULT.json',result);write_json(root/'registry.json',registry)
+    write_json(root/'nominal-reference.json',dict(rule=reference_rule,instances=references))
     write_json(root/'evidence.json.gz',records);write_json(root/'paired-comparisons.json',comparisons)
     if rows:
         with (root/'plans.csv').open('w',newline='') as stream:
@@ -251,10 +266,16 @@ def report(registry_path):
     lines += ['', 'Парные изменения относительно исходного и nominal-плана сохранены в paired-comparisons.json; '
         'интервалы относятся к отдельному сравнению и режиму, без общей гарантии для всех строк. '
         'Одинаковые сценарии и повторения поиска не увеличивают размер независимой проверочной выборки.',
+        'Дополнительный ориентир nominal_best_frozen — минимальная безотказная длительность среди всех '
+        'замороженных планов разных целей и seed. Правило выбора закреплено до открытия проверочных результатов '
+        'и не использует проверочные исходы. Его стоимость включает все запуски, сформировавшие этот набор. '
+        'Результат scalar nominal-поиска нельзя считать сильнейшим найденным nominal-планом, если другой запуск уже дал меньшую длительность.',
         'Использован обычный поиск с прямой оценкой частоты успеха. При полных наблюдениях full-model R даёт ту же частоту; '
         'преимущество SIMPAT или новизна оптимизатора не заявляются. Pareto означает ограниченный найденный набор, а не полный фронт.',
         'Фактические улучшения и ухудшения следует читать вместе с неопределённостью и добавочной ценой поиска. '
         'Отсутствие подтверждённого выигрыша не заменяется различием внутренних fitness.',
+        'Разные цели используют разные траектории поиска и фактически израсходованный CPU. '
+        'Сравнение не устанавливает чистый причинный эффект критерия при равных затратах.',
         '', 'E1–E6 публикуются и принимаются отдельно.']
     for item in missing:lines.append('- '+json.dumps(item,ensure_ascii=False))
     (root/'REPORT_RU.md').write_text('\n'.join(lines)+'\n')
