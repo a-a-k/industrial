@@ -1,0 +1,18 @@
+{
+  "protocol": "industrial-e1-e6-v1",
+  "environment_release": "industrial-environment-v1",
+  "qualification_release": "qualification-43694145363-1",
+  "preflight_release": "preflight-43639035427-1",
+  "first_calibration_acquisition_run": 43639226962,
+  "remaining_calibration_acquisition_run": 43690938905,
+  "uniform_calibration_identification_run": 43694563203,
+  "analysis_revision_release": "analysis-revision-43695664107-1",
+  "analysis_version": "industrial-cudd-cofactor-witness-v2",
+  "validation_acquisition_run": null,
+  "validation_descriptive_identification_run": null,
+  "evaluation_release": null,
+  "measurement_runs": [],
+  "final_report_release": null,
+  "monetary_budget": 0,
+  "operational_runner_hour_limit": 72
+}

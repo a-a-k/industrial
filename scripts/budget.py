@@ -28,7 +28,9 @@ while True:
                     elapsed=max(0.,(when(job['completed_at'])-when(job['started_at'])).total_seconds());completed+=elapsed
                 elif job['status']!='completed':reserved+=90*60
                 census.append(dict(id=job['id'],run=run['id'],status=job['status'],elapsed_s=elapsed))
+            if len(jobs)<100:break
             jp+=1
+    if len(runs)<100:break
     page+=1
 report=dict(limit_s=72*3600,completed_s=completed,reserved_s=reserved,jobs=census,
             monetary_budget=0,runner_policy='public standard ubuntu-24.04 only')
