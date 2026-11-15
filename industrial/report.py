@@ -81,11 +81,17 @@ def run(registry):
         '--jq','.workflow_runs[] | {id,head_sha,status,conclusion,html_url,created_at,updated_at}'],text=True)
     (root/'workflow-history.jsonl').write_text(raw)
     cost_fields=['case','status','method','required','completed','timeouts','completion_fraction',
-        'median_wall_s','median_completed_only_diagnostic_s','median_cpu_s','median_peak_rss_bytes','median_representation_bytes']
+        'median_wall_s','median_completed_only_diagnostic_s','median_cpu_s','median_peak_rss_bytes','median_representation_bytes',
+        'shared_setup_s','preparation_status','method_all_attempts_wall_s','pair_with_setup_wall_s']
     with (root/'costs.csv').open('w',newline='') as stream:
         writer=csv.DictWriter(stream,fieldnames=cost_fields);writer.writeheader()
         for m in measures:
-            for method,summary in m['summary'].items():writer.writerow(dict(case=m['case'],status=m['status'],method=method,**summary))
+            for method,summary in m['summary'].items():
+                wall=lambda row:row.get('process',{}).get('wall_s',0)
+                writer.writerow(dict(case=m['case'],status=m['status'],method=method,**summary,
+                    shared_setup_s=m['shared_setup_s'],preparation_status=m['preparation']['status'],
+                    method_all_attempts_wall_s=sum(wall(r) for r in m['attempts'] if r['method']==method),
+                    pair_with_setup_wall_s=m['shared_setup_s']+sum(wall(r) for r in m['attempts'])))
     if eroot is not None:
         import shutil
         shutil.copyfile(eroot/'forecasts.csv',root/'forecasts.csv')
@@ -136,6 +142,9 @@ def run(registry):
         'Каждая пара выполнена на одном runner, в контейнере с одним ядром и лимитом 4 GiB. Один прогрев и пять измеряемых свежих процессов на метод. '
         'Прогревы и подготовка сохранены отдельно; времена тайм-аутов цензурированы. '
         'Медианы отношений публикуются только при пяти корректных завершённых парах. Повторённые журналы — нагрузка, не новые производственные испытания.',
+        'Время в строке метода относится к одному свежему процессу. Общая подготовка показана отдельно; '
+        'costs.csv также содержит суммарное время всех попыток, включая прогревы и цензурированные процессы, и стоимость пары с подготовкой. '
+        'Установка окружения и сборки дополнительно учтены в полном runner-бюджете кампании.',
         '', '| Случай | Статус | Метод | Время, с | CPU, с | RSS, MiB | Представление, байт | Завершено из 5 | Отношение первого / второго |',
         '|---|---|---|---:|---:|---:|---:|---:|---:|']
     def number(value,digits=4):return '—' if value is None else f'{value:.{digits}f}'
@@ -146,6 +155,10 @@ def run(registry):
             lines.append(f"| {m['case']} | {m['status']} | {method} | {number(s['median_wall_s'])} | "
                 f"{number(s.get('median_cpu_s'))} | {number(None if rss is None else rss/1024**2,2)} | "
                 f"{number(s.get('median_representation_bytes'),0)} | {s['completed']} / {s['required']} | {ratio} |")
+    lines += ['', '| Случай | Подготовка и загрузка, с | Все процессы пары с подготовкой, с |', '|---|---:|---:|']
+    for m in sorted(measures,key=lambda x:x['case']):
+        total=m['shared_setup_s']+sum(r.get('process',{}).get('wall_s',0) for r in m['attempts'])
+        lines.append(f"| {m['case']} | {m['shared_setup_s']:.3f} | {total:.3f} |")
     lines += ['', '## Границы выводов и невыполненные обязательства','',
         'Проверяется идентификация по синтетическим производственным наблюдениям. Данные реального оборудования и экономический выбор резерва не исследовались. '
         'Перенос относится к процедуре, а не к численным параметрам между разными экземплярами. Mk08–Mk10 ранее использовались в отдельном TSFG исследовании.',
