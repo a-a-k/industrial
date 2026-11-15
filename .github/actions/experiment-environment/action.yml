@@ -1,0 +1,42 @@
+name: Frozen experimental environment
+description: Install hash-locked public environments and the required participants
+inputs:
+  cp:
+    default: 'false'
+    description: Install the separate frozen CP-SAT environment
+  build:
+    default: none
+    description: none, public or tsfg
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: apt-get update -qq && apt-get install -y --no-install-recommends gh
+    - shell: bash
+      run: |
+        gh release download industrial-environment-v1 --pattern environment.tar.gz --dir output
+        tar -xzf output/environment.tar.gz -C output
+        cmp requirements.lock output/environment/requirements.lock
+        python -m pip install --no-index --find-links output/environment/wheels --require-hashes -r requirements.lock
+    - if: inputs.cp == 'true'
+      shell: bash
+      run: |
+        python -c 'from industrial.releases import fetch;fetch("cpsat-environment-43719097005-1","output/cp-env")'
+        python -m venv .private/cpsat-venv
+        .private/cpsat-venv/bin/python -m pip install --no-index --find-links output/cp-env/cpsat-environment/wheels --require-hashes -r output/cp-env/cpsat-environment/requirements.lock
+        echo "CP_PYTHON=$GITHUB_WORKSPACE/.private/cpsat-venv/bin/python" >> "$GITHUB_ENV"
+    - if: inputs.build == 'public'
+      shell: bash
+      run: PUBLIC_ONLY=1 python scripts/build.py
+    - if: inputs.build == 'tsfg'
+      uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+      with:
+        go-version: '1.26.0'
+        cache: false
+    - if: inputs.build == 'tsfg'
+      shell: bash
+      run: |
+        python scripts/fetch_tsfg.py
+        python -c 'from industrial.releases import fetch;fetch("preflight-43639035427-1","output/source-preflight")'
+        export TSFG_TEST_EVIDENCE=output/source-preflight/preflight/provenance/tsfg-provenance.json
+        python scripts/build.py

@@ -11,7 +11,7 @@ from planning.generator import decode,from_conditions,initial_genome,validate_pr
 from industrial.common import actions_only,digest,read_json,write_json
 
 
-def generate(data,folder,budget_s=240,seed=1701,started=None):
+def generate(data,folder,budget_s=240,seed=1701,started=None,pool_limit=0):
     started=time.perf_counter() if started is None else started
     from ortools.sat.python import cp_model
     import ortools
@@ -41,21 +41,36 @@ def generate(data,folder,budget_s=240,seed=1701,started=None):
         for index,alt in enumerate(op['alternatives']):
             model.add_hint(choices[op['id'],index],int(alt['machine']==op['machine']))
     model.add_hint(makespan,horizon)
+    def genome_from(reader):
+        assignments=[next(k for k in range(len(op['alternatives'])) if reader.boolean_value(choices[op['id'],k])) for op in data['operations']]
+        priorities=sorted(range(len(assignments)),key=lambda i:(reader.value(starts[i]),i))
+        return assignments,priorities
+    class Collector(cp_model.CpSolverSolutionCallback):
+        def __init__(self):
+            super().__init__();self.pool=[];self.seen=0;self.omitted=0
+        def on_solution_callback(self):
+            self.seen+=1
+            if len(self.pool)==pool_limit:self.pool.pop(0);self.omitted+=1
+            self.pool.append(dict(genome=genome_from(self),cp_objective_ticks=self.value(makespan)*step))
+    collector=Collector() if pool_limit else None
     solver=cp_model.CpSolver();solver.parameters.num_search_workers=1;solver.parameters.random_seed=seed
     remaining=budget_s-(time.perf_counter()-started)-5
     if remaining<=0:raise TimeoutError('CP model construction exhausted its complete budget')
     solver.parameters.max_time_in_seconds=remaining
-    status=solver.solve(model);status_name=solver.status_name(status)
+    status=solver.solve(model,collector) if collector is not None else solver.solve(model)
+    status_name=solver.status_name(status)
     if status in (cp_model.INFEASIBLE,cp_model.MODEL_INVALID):raise ValueError('constructively feasible model rejected: '+status_name)
     plan=initial;incumbent_source='initial';objective=None
     if status in (cp_model.OPTIMAL,cp_model.FEASIBLE):
-        assignments=[next(k for k in range(len(op['alternatives'])) if solver.boolean_value(choices[op['id'],k])) for op in data['operations']]
-        priorities=sorted(range(len(assignments)),key=lambda i:(solver.value(starts[i]),i))
+        assignments,priorities=genome_from(solver)
         plan=decode(data,(assignments,priorities));incumbent_source='CP-SAT';objective=solver.value(makespan)*step
         if plan['planned_makespan']>objective:raise ValueError('earliest decoding worsened the CP solution')
         if status==cp_model.OPTIMAL and plan['planned_makespan']!=objective:raise ValueError('claimed optimum contradicts feasible decoding')
     root=Path(folder);root.mkdir(parents=True,exist_ok=True)
     write_json(root/'schedule.json',plan)
+    if collector is not None:
+        write_json(root/'pool.json',dict(limit=pool_limit,solutions_seen=collector.seen,
+            omitted=collector.omitted,candidates=collector.pool,final_genome=initial_genome(plan)))
     response=dict(status='PASS',solver_status=status_name,incumbent_source=incumbent_source,
         nominal_optimality_proved=status==cp_model.OPTIMAL,stochastic_optimality_claimed=False,
         planned_makespan=plan['planned_makespan'],initial_makespan=initial['planned_makespan'],

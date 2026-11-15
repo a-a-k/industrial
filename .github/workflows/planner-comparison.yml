@@ -1,0 +1,154 @@
+name: Equal-budget probability-search comparison
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: industrial-planner-comparison
+  cancel-in-progress: false
+env:
+  GH_REPO: ${{ github.repository }}
+  PYTHONPATH: .:vendor/simpat
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  GOMAXPROCS: '1'
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container:
+      image: python:3.11.16-bookworm@sha256:b99029c95d3d37fb1e4e76d287f7984373dca77c665885986e31b2c95260c13c
+      options: --cpus=1 --memory=4g --memory-swap=4g
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: python scripts/budget.py
+      - uses: ./.github/actions/experiment-environment
+        with:
+          cp: 'true'
+          build: public
+      - name: Qualify incumbent collection and identical calibration information
+        run: |
+          mkdir -p output/planner-verification
+          python -m compileall -q industrial planning tests
+          "$CP_PYTHON" -m unittest tests.test_cpsat tests.test_rerank -v > output/planner-verification/cp-tests.txt 2>&1
+          cat output/planner-verification/cp-tests.txt
+          python -m unittest tests.test_planning -v > output/planner-verification/planning-tests.txt 2>&1
+          cat output/planner-verification/planning-tests.txt
+          python -m industrial.planner_comparison verify
+      - if: always()
+        run: |
+          mkdir -p output/planner-verification/provenance
+          cp output/budget.json output/planner-verification/provenance/ || true
+          python scripts/publish.py --name planner-verification --path output/planner-verification
+  generate:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        instance: [Mk01, Mk05, Mk10]
+        seed: [1701, 1702, 1703]
+    container:
+      image: python:3.11.16-bookworm@sha256:b99029c95d3d37fb1e4e76d287f7984373dca77c665885986e31b2c95260c13c
+      options: --cpus=1 --memory=4g --memory-swap=4g
+    env:
+      GH_TOKEN: ${{ github.token }}
+      INSTANCE: ${{ matrix.instance }}
+      SEED: ${{ matrix.seed }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: python scripts/budget.py
+      - uses: ./.github/actions/experiment-environment
+        with:
+          cp: 'true'
+          build: public
+      - name: Run all three methods on the same runner and freeze their plans
+        run: python -m industrial.planner_comparison generate "$INSTANCE" "$SEED" "$CP_PYTHON"
+      - if: always()
+        run: |
+          mkdir -p output/planner-pair/provenance
+          cp output/budget.json output/planner-pair/provenance/ || true
+          cp build/environment.json output/planner-pair/provenance/ || true
+          python scripts/publish.py --name "planner-pair-$INSTANCE-$SEED" --path output/planner-pair
+  seal:
+    needs: generate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container:
+      image: python:3.11.16-bookworm@sha256:b99029c95d3d37fb1e4e76d287f7984373dca77c665885986e31b2c95260c13c
+      options: --cpus=1 --memory=4g --memory-swap=4g
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: python scripts/budget.py
+      - uses: ./.github/actions/experiment-environment
+      - run: python -m industrial.planner_comparison seal
+      - run: python scripts/publish.py --name planner-seal --path output/planner-seal
+  validate:
+    needs: seal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        instance: [Mk01, Mk05, Mk10]
+    container:
+      image: python:3.11.16-bookworm@sha256:b99029c95d3d37fb1e4e76d287f7984373dca77c665885986e31b2c95260c13c
+      options: --cpus=1 --memory=4g --memory-swap=4g
+    env:
+      GH_TOKEN: ${{ github.token }}
+      INSTANCE: ${{ matrix.instance }}
+      TSFG_SOURCE_SSH_KEY: ${{ secrets.TSFG_SOURCE_SSH_KEY }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: python scripts/budget.py
+      - uses: ./.github/actions/experiment-environment
+        with:
+          build: tsfg
+      - name: Open the new holdout only after all nine pairs are frozen
+        run: python -m industrial.planner_comparison validate "$INSTANCE"
+      - if: always()
+        run: |
+          mkdir -p output/planner-validation/provenance
+          cp output/budget.json output/planner-validation/provenance/ || true
+          cp build/*.json output/planner-validation/provenance/ || true
+          python scripts/publish.py --name "planner-validation-$INSTANCE" --path output/planner-validation
+  report:
+    needs: [verify, generate, seal, validate]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container:
+      image: python:3.11.16-bookworm@sha256:b99029c95d3d37fb1e4e76d287f7984373dca77c665885986e31b2c95260c13c
+      options: --cpus=1 --memory=4g --memory-swap=4g
+    env:
+      GH_TOKEN: ${{ github.token }}
+      FINAL_REPORT: '1'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: python scripts/budget.py
+      - uses: ./.github/actions/experiment-environment
+      - run: python -m industrial.planner_comparison report
+      - if: always()
+        run: |
+          mkdir -p output/planner-report/provenance
+          cp output/budget.json output/planner-report/provenance/ || true
+          python scripts/publish.py --name planner-report --path output/planner-report
