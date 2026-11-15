@@ -28,11 +28,17 @@ evaluations. Report actual consumed time and the stopping reason, including
 early evaluation limits, preparation, failures and cache hits. Different
 objectives can consume different fractions of this upper budget. Preserve
 candidate encodings and empirical outcomes, not only the winning fitness.
+Pass the remaining wall time into every native candidate evaluation, stop an
+incomplete evaluation without admitting its score, and preserve the previous
+incumbent. Reserve five seconds for finalization. A complete child process that
+exceeds 240 seconds is explicitly marked BUDGET_EXCEEDED rather than accepted.
 
 For Pareto output, retain coordinate extremes, then deterministic farthest
 points after normalization by observed coordinate ranges; cap the internal
 archive at 128 and the reported subset at nine. Archive truncation and finite
-sampling limit the result. Nominal ties break by duration for deadline F1; worst
+sampling limit the search. Before final output, recompute nondominance against
+all evaluated cached points, so truncation cannot leave a known dominated plan
+in the reported subset. Nominal ties break by duration for deadline F1; worst
 regime ties break by average empirical probability and then duration.
 
 Freeze all generated plans before producing the new shared 1024-replication
@@ -64,3 +70,5 @@ alternatives, predecessors and releases; machine queues and a starting schedule)
 reference scale. Search produces new assignments and queues. The instance must
 use the supported fixed-assignment, suspend/resume execution contract; arbitrary
 new production rules require a separate validated adapter.
+An injected evaluator accepts `(plan, objective, remaining_s)` and must raise
+`planning.generator.BudgetStop` instead of returning an incomplete score.

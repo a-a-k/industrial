@@ -8,6 +8,10 @@ import time
 OBJECTIVES=('nominal','deadline_f1','worst_regime','pareto')
 
 
+class BudgetStop(Exception):
+    """An incomplete evaluation is censored, never admitted as a candidate score."""
+
+
 def validate_problem(data):
     ops=data['operations'];machines=len(data['queues'])
     if not machines or [o['id'] for o in ops]!=list(range(len(ops))):
@@ -110,7 +114,8 @@ def search(data,objective,evaluate,identity,budget_s,seed,max_evaluations=1000,t
     if objective not in OBJECTIVES:raise ValueError('unknown objective')
     validate_problem(data);started=time.perf_counter();source=random.Random(seed)
     genome=initial_genome(data);cache={};archive=[];incumbent=None;best=None;stale=0
-    stats=dict(evaluated=0,cache_hits=0,restarts=0,failures=0)
+    evaluated_records={}
+    stats=dict(evaluated=0,cache_hits=0,restarts=0,failures=0,budget_censored_evaluations=0)
     stopping='evaluation_limit'
     for iteration in range(max_evaluations):
         elapsed=time.perf_counter()-started
@@ -129,13 +134,18 @@ def search(data,objective,evaluate,identity,budget_s,seed,max_evaluations=1000,t
             typical=(time.perf_counter()-started)/max(stats['evaluated'],1)
             if budget_s-(time.perf_counter()-started)<max(1.,2*typical):
                 stopping='evaluation_reservation';break
-            try:score=evaluate(plan,objective)
+            try:score=evaluate(plan,objective,budget_s-(time.perf_counter()-started))
+            except BudgetStop as error:
+                stats['budget_censored_evaluations']+=1;stopping='evaluation_budget_censored'
+                if trace:trace(dict(iteration=iteration,plan_sha256=key,genome=genome,status='BUDGET_CENSORED',error=str(error)))
+                break
             except Exception as error:
                 stats['failures']+=1
                 if trace:trace(dict(iteration=iteration,plan_sha256=key,genome=genome,status='FAILED',error=str(error)))
                 stale+=1;continue
             cache[key]=score;stats['evaluated']+=1
         record=dict(plan_sha256=key,genome=genome,score=score)
+        evaluated_records[key]=record
         if trace:trace(dict(record,iteration=iteration,status='OK',elapsed_s=time.perf_counter()-started))
         if objective=='pareto':
             point=coordinates(score)
@@ -149,7 +159,15 @@ def search(data,objective,evaluate,identity,budget_s,seed,max_evaluations=1000,t
         else:stale+=1
         if objective!='pareto' and (best is None or objective_key(score,objective)<objective_key(best['score'],objective)):
             best=record
-    selected=pareto_representatives(archive,9) if objective=='pareto' else ([best] if best else [])
+    if objective=='pareto':
+        # The search archive may be capped; final output is checked against ALL evaluated plans.
+        archive=[]
+        for record in sorted(evaluated_records.values(),key=lambda r:r['plan_sha256']):
+            point=coordinates(record['score'])
+            if not any(coordinates(r['score'])==point or dominates(coordinates(r['score']),point) for r in archive):
+                archive=[r for r in archive if not dominates(point,coordinates(r['score']))]+[record]
+        selected=pareto_representatives(archive,9)
+    else:selected=[best] if best else []
     return dict(selected=selected,stats=stats,stopping_reason=stopping,wall_s=time.perf_counter()-started,
         objective=objective,seed=seed,budget_s=budget_s,max_evaluations=max_evaluations,
         globally_optimal=False,claim='best found under the declared search budget')

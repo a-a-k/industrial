@@ -9,8 +9,8 @@ import resource
 import shutil
 import sys
 import time
-from planning.generator import decode,search,validate_problem
-from .common import actions_only,canonical,digest,execute,read_json,write_json
+from planning.generator import BudgetStop,decode,search,validate_problem
+from .common import actions_only,canonical,digest,execute,read_json,read_rows,write_json
 from .inputs import scenarios
 from .production import simulate,product_ledger,outcomes,check_physics,compare
 from .releases import fetch
@@ -28,21 +28,34 @@ def search_one(problem_path,folder,objective,seed):
     calendars={law:scenarios(data,law,spec['search_split'],n) for law in needed}
     write_json(root/'search-calendars.json.gz',calendars)
     work=root/'last-evaluation';failures=0
-    def evaluate(plan,which):
+    def evaluate(plan,which,remaining_s):
         nonlocal failures
+        evaluation_end=time.perf_counter()+remaining_s
         score=dict(nominal_makespan=max(o['planned_end'] for o in plan['operations']),p_f1=None,p_f2=None)
         if which=='nominal':return score
         try:
             for law in (['F1'] if which=='deadline_f1' else spec['laws']):
                 if work.exists():shutil.rmtree(work)
-                trajectories,processes=simulate(plan,calendars[law],work,'des',deadline,chunk=n)
+                work.mkdir(parents=True);write_json(work/'dataset.json',plan);write_json(work/'scenarios.json',calendars[law])
+                remaining=evaluation_end-time.perf_counter()
+                if remaining<=0:raise BudgetStop('no time left for a complete candidate evaluation')
+                process=execute([str(Path('build/simulator').resolve()),'des',str(work/'dataset.json'),
+                    str(work/'scenarios.json'),str(work/'des.jsonl'),'MISSION',str(deadline),str(plan['delta'])],timeout=remaining)
+                processes=[process]
+                if process['status']=='TIMEOUT':raise BudgetStop('native candidate computation censored at the remaining search budget')
+                trajectories={r['scenario_id']:r for r in read_rows(work/'des.jsonl')} if (work/'des.jsonl').exists() else {}
                 if len(trajectories)!=n or any(p['status']!='OK' for p in processes):
                     raise ValueError('candidate evaluation unavailable: '+json.dumps(processes))
-                for scenario in calendars[law]:check_physics(plan,scenario,trajectories[scenario['id']])
+                for scenario in calendars[law]:
+                    if time.perf_counter()>=evaluation_end:raise BudgetStop('candidate checking censored at search budget')
+                    check_physics(plan,scenario,trajectories[scenario['id']])
                 labels=outcomes(product_ledger(plan,calendars[law],trajectories),[j['id'] for j in plan['jobs'] if not j.get('optional',False)],deadline)
                 if len(labels)!=n or any(v is None for v in labels.values()):raise ValueError('unknown candidate outcomes')
                 score['p_'+law.lower()]=sum(labels.values())/n
                 score[law]=dict(samples=n,successes=sum(labels.values()),outcomes=labels,processes=processes)
+        except BudgetStop:
+            if work.exists():shutil.copytree(work,root/'budget-censored-evaluation')
+            raise
         except Exception:
             failures+=1
             if work.exists():shutil.copytree(work,root/f'failed-evaluation-{failures:04d}')
@@ -50,7 +63,7 @@ def search_one(problem_path,folder,objective,seed):
         return score
     prep_s=time.perf_counter()-started
     with gzip.open(root/'search-trace.jsonl.gz','wt',encoding='utf-8') as trace:
-        result=search(data,objective,evaluate,plan_identity,max(0,spec['search']['total_budget_s']-prep_s),seed,
+        result=search(data,objective,evaluate,plan_identity,max(0,spec['search']['total_budget_s']-prep_s-5),seed,
             max_evaluations=spec['search']['max_evaluations'],trace=lambda row:trace.write(json.dumps(row,separators=(',',':'))+'\n'))
     for index,entry in enumerate(result['selected']):
         plan=decode(data,entry['genome']);entry['file']=f'plan-{index:02d}.json'
@@ -80,6 +93,7 @@ def generate(preflight,instance):
             process=execute([sys.executable,'-m','industrial.plan_campaign','search',str(root/'problem.json'),
                 '--folder',str(folder),'--objective',objective,'--seed',str(seed)])
             result=read_json(folder/'result.json') if process['status']=='OK' else dict(status='UNAVAILABLE')
+            if process['wall_s']>spec['search']['total_budget_s']:result['status']='BUDGET_EXCEEDED'
             results.append(dict(case=label,objective=objective,seed=seed,process=process,result=result))
             write_json(root/'progress.json',dict(instance=instance,results=results))
     report=dict(status='PASS' if all(r['result']['status']=='PASS' for r in results) else 'PARTIAL',

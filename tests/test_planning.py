@@ -1,7 +1,7 @@
 from itertools import permutations,product
 from pathlib import Path
 import unittest
-from planning.generator import decode,initial_genome,search,validate_problem
+from planning.generator import BudgetStop,decode,initial_genome,search,validate_problem
 from industrial.plan_campaign import plan_identity,paired_difference
 from industrial.production import simulate,check_physics,compare
 
@@ -38,12 +38,23 @@ class PlanningTests(unittest.TestCase):
 
     def test_search_generates_new_assignments_and_preserves_best_incumbent(self):
         data=problem();initial=decode(data,initial_genome(data))
-        def evaluate(plan,objective):
+        def evaluate(plan,objective,remaining_s):
             return dict(nominal_makespan=plan['planned_makespan'],p_f1=1-plan['planned_makespan']/100,p_f2=.5)
         for objective in ('nominal','deadline_f1','worst_regime','pareto'):
             result=search(data,objective,evaluate,plan_identity,10,1701,max_evaluations=100)
             self.assertTrue(result['selected']);self.assertFalse(result['globally_optimal'])
             self.assertLess(min(r['score']['nominal_makespan'] for r in result['selected']),initial['planned_makespan'])
+
+    def test_budget_censored_evaluation_returns_the_previous_incumbent(self):
+        calls=[]
+        def evaluate(plan,objective,remaining_s):
+            calls.append(plan_identity(plan))
+            if len(calls)>1:raise BudgetStop('test remaining-budget exhaustion')
+            return dict(nominal_makespan=plan['planned_makespan'])
+        result=search(problem(),'nominal',evaluate,plan_identity,10,1701,max_evaluations=100)
+        self.assertEqual(result['stopping_reason'],'evaluation_budget_censored')
+        self.assertEqual(result['stats']['budget_censored_evaluations'],1)
+        self.assertEqual(result['selected'][0]['plan_sha256'],calls[0])
 
     def test_invalid_compatibility_and_cycles_are_rejected(self):
         data=problem();data['operations'][0]['alternatives'][0]['machine']=99
