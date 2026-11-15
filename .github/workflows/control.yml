@@ -4,7 +4,7 @@ on:
     inputs:
       task:
         type: choice
-        options: [seal, evaluate]
+        options: [seal, evaluate, report]
         required: true
       registry:
         type: string
@@ -36,7 +36,10 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           persist-credentials: false
-      - run: python scripts/budget.py
+      - name: Reserve control or final reporting time
+        run: |
+          if [ "$TASK" = report ]; then export FINAL_REPORT=1; fi
+          python scripts/budget.py
       - run: apt-get update -qq && apt-get install -y --no-install-recommends gh
       - name: Install immutable environment
         run: |
@@ -47,14 +50,21 @@ jobs:
       - name: Apply fixed evidence registry
         run: |
           python -c 'import os,json;from pathlib import Path;Path("output/registry.json").write_text(json.dumps(json.loads(os.environ["REGISTRY"]),sort_keys=True))'
-          python -m industrial.evaluation "$TASK" output/registry.json
+          if [ "$TASK" = report ]; then
+            python -m industrial.report output/registry.json
+          else
+            python -m industrial.evaluation "$TASK" output/registry.json
+          fi
       - name: Preserve sealed predictions or independent evaluation
         if: always()
         run: |
           if [ "$TASK" = seal ]; then
             mkdir -p output/seal
             python scripts/publish.py --name seal --path output/seal
-          else
+          elif [ "$TASK" = evaluate ]; then
             mkdir -p output/evaluation
             python scripts/publish.py --name evaluation --path output/evaluation
+          else
+            mkdir -p output/final-report
+            python scripts/publish.py --name final-report --path output/final-report
           fi

@@ -32,6 +32,8 @@ while True:
     page+=1
 report=dict(limit_s=72*3600,completed_s=completed,reserved_s=reserved,jobs=census,
             monetary_budget=0,runner_policy='public standard ubuntu-24.04 only')
+report['reserved_final_report_s']=90*60
+report['dispatch_limit_s']=72*3600 if os.environ.get('FINAL_REPORT')=='1' else 72*3600-90*60
 Path('output').mkdir(exist_ok=True);Path('output/budget.json').write_text(json.dumps(report,indent=2)+'\n')
 print(json.dumps({k:v for k,v in report.items() if k!='jobs'}))
-if completed+reserved>72*3600:raise SystemExit('Campaign budget reservation exceeded; remaining obligations are PARTIAL')
+if completed+reserved>report['dispatch_limit_s']:raise SystemExit('Campaign budget reservation exceeded; remaining obligations are PARTIAL')
