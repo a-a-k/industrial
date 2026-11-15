@@ -166,7 +166,6 @@ def worker(problem_path,method,folder):
         reduced=query_reduced(model)
         if reduced['guaranteed']!=reduced['possible']:raise ValueError('unexpected interval')
         successes=reduced['guaranteed']
-        write_json(root/'reduced.json',model)
     else:successes=finished
     from fractions import Fraction
     from .statistics import outer
