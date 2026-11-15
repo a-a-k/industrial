@@ -140,12 +140,16 @@ def validate(instance):
     if status!='PASS':raise SystemExit('required independent validation incomplete')
 
 
-def report():
+def report(source_run=None):
     spec=profile();root=Path('output/planner-report');root.mkdir(parents=True,exist_ok=True)
-    records=[];missing=[];comparisons=[];rows=[];benefits=[];identical=[]
+    suffix=source_run or run_suffix()
+    if len(suffix.split('-'))!=2 or not all(p.isdigit() for p in suffix.split('-')):raise ValueError('invalid source run suffix')
+    records=[];missing=[];comparisons=[];rows=[];benefits=[];identical=[];identical_costs=[]
     for instance in spec['instances']:
-        tag='planner-validation-'+instance+'-'+run_suffix()
-        try:source,_=fetch(tag,'output/report-'+instance);validation=read_json(source/'validation.json')
+        tag='planner-validation-'+instance+'-'+suffix
+        try:
+            source,_=fetch(tag,'output/report-'+instance);validation=read_json(source/'validation.json')
+            if validation['profile']!=spec:raise ValueError('validation protocol mismatch')
         except Exception as error:missing.append(dict(instance=instance,error=str(error)));continue
         records.append(validation);by_alias={a:p for p in validation['plans'] for a in p['aliases']}
         for generation in validation['generations']:
@@ -172,17 +176,21 @@ def report():
                 if law=='F1' and all(v['status']=='OK' and v['outer95'][0]>0 and v['no_greater_actual_wall_cost'] for v in local):
                     benefits.append(dict(instance=instance,seed=seed))
             for baseline in ('cp_nominal','cp_pool_mc'):
-                if (methods['hybrid']['physical_sha256']==methods[baseline]['physical_sha256']
-                        and methods['hybrid']['process']['wall_s']<methods[baseline]['process']['wall_s']):
-                    identical.append(dict(instance=instance,seed=seed,baseline=baseline))
+                if methods['hybrid']['physical_sha256']==methods[baseline]['physical_sha256']:
+                    hw=methods['hybrid']['process']['wall_s'];bw=methods[baseline]['process']['wall_s']
+                    identical_costs.append(dict(instance=instance,seed=seed,baseline=baseline,
+                        faster_method='hybrid' if hw<bw else baseline if bw<hw else 'equal',
+                        hybrid_wall_s=hw,baseline_wall_s=bw,hybrid_to_baseline_wall_ratio=hw/bw))
+                    if hw<bw:identical.append(dict(instance=instance,seed=seed,baseline=baseline))
     complete=len(records)==3 and all(r['status']=='PASS' for r in records) and len(comparisons)==36 and all(r['status']=='OK' for r in comparisons) and not missing
     result=dict(status='COMPLETE' if complete else 'PARTIAL',profile=spec,missing=missing,
         clear_benefit_conditions=benefits,exact_same_plan_lower_cost=identical,
+        hybrid_exact_same_plan_lower_cost=identical,identical_schedule_cost_comparisons=identical_costs,
         registered_conditions=9,all_registered_conditions_show_clear_benefit=len(benefits)==9,
         comparisons=comparisons,unique_validation_scenarios=6144,
         optimizer_novelty_claimed=False,SIMPAT_superiority_claimed=False,
         completed_runner_hours_before_report=read_json('output/budget.json')['completed_s']/3600,
-        commit=os.environ['GITHUB_SHA'],run_id=os.environ['GITHUB_RUN_ID'])
+        source_run=suffix,commit=os.environ['GITHUB_SHA'],run_id=os.environ['GITHUB_RUN_ID'])
     write_json(root/'RESULT.json',result);write_json(root/'evidence.json.gz',records)
     if rows:
         with (root/'plans.csv').open('w',newline='') as stream:
@@ -198,7 +206,7 @@ def report():
         if r['status']=='OK':
             lo,hi=r['outer95'];lines.append(f"| {r['instance']} | {r['seed']} | {r['law']} | {r['baseline']} | {100*r['difference']:+.2f} | [{100*lo:+.2f}; {100*hi:+.2f}] | {r['no_greater_actual_wall_cost']} |")
     lines+=['',f"Объявленный критерий улучшения вероятности при не большей фактической цене против обоих baseline выполнен в {len(benefits)} из 9 зарегистрированных условий.",
-        f"Точные совпадения физического расписания с меньшей ценой: {len(identical)} отдельных сравнений.",
+        f"Совпадения физического расписания: {len(identical_costs)}; из них hybrid дешевле в {len(identical)} сравнений.",
         'Отсутствие значимого различия вероятностей не объявляется эквивалентностью. '
         'Результат относится к фиксированным экземплярам и seed; удачный seed по проверочным исходам не выбирается.',
         'Все планы зафиксированы до нового holdout. Для 36 сравнений использованы 144 односторонние биномиальные границы '
@@ -207,6 +215,9 @@ def report():
         'Новизна оптимизатора и преимущество SIMPAT не заявляются. Качество worst-regime и Pareto этой проверкой не установлено.',
         f"До отчётного задания израсходовано {result['completed_runner_hours_before_report']:.3f} из 72 runner-часов. "
         'Общая установка среды, сборки, квалификация и независимая проверка включены в кампанию; времена методов указаны отдельно.']
+    lines+=['', '| Экземпляр | Seed | Совпавший baseline | Более быстрый способ | Hybrid, с | Baseline, с |', '|---|---:|---|---|---:|---:|']
+    for row in identical_costs:
+        lines.append(f"| {row['instance']} | {row['seed']} | {row['baseline']} | {row['faster_method']} | {row['hybrid_wall_s']:.3f} | {row['baseline_wall_s']:.3f} |")
     for item in missing:lines.append('- '+str(item))
     (root/'REPORT_RU.md').write_text('\n'.join(lines)+'\n')
 
@@ -217,5 +228,5 @@ if __name__=='__main__':
     elif task=='generate':generate(sys.argv[2],int(sys.argv[3]),sys.argv[4])
     elif task=='seal':seal()
     elif task=='validate':validate(sys.argv[2])
-    elif task=='report':report()
+    elif task=='report':report(sys.argv[2] if len(sys.argv)>2 else None)
     else:raise SystemExit('unknown comparison stage')

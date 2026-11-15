@@ -1,0 +1,45 @@
+name: Reanalyse immutable planner comparison results
+on:
+  workflow_dispatch:
+    inputs:
+      source_run:
+        type: string
+        default: '43730898043-1'
+        required: true
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: industrial-planner-report
+  cancel-in-progress: false
+env:
+  GH_REPO: ${{ github.repository }}
+  PYTHONPATH: .:vendor/simpat
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+jobs:
+  report:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container:
+      image: python:3.11.16-bookworm@sha256:b99029c95d3d37fb1e4e76d287f7984373dca77c665885986e31b2c95260c13c
+      options: --cpus=1 --memory=4g --memory-swap=4g
+    env:
+      GH_TOKEN: ${{ github.token }}
+      FINAL_REPORT: '1'
+      SOURCE_RUN: ${{ inputs.source_run }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: python scripts/budget.py
+      - uses: ./.github/actions/experiment-environment
+      - run: |
+          python -m compileall -q industrial/planner_comparison.py
+          python -m industrial.planner_comparison report "$SOURCE_RUN"
+      - if: always()
+        run: |
+          mkdir -p output/planner-report/provenance
+          cp output/budget.json output/planner-report/provenance/ || true
+          python scripts/publish.py --name planner-report --path output/planner-report
