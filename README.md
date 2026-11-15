@@ -28,10 +28,18 @@ The original S1 TSFG participant uses an unchanged private upstream kernel plus
 the public operation adapter. Its source and binary are not distributed. DES and
 DAG are independent open implementations and remain independently reproducible.
 
-The calibration models, independent production bank and external comparisons
-have been executed. Final cost acceptance is in progress. Primary releases and runs are listed in
+The [E1–E6 report](results/industrial/REPORT_RU.md) records E1–E5 PASS and
+E6 PARTIAL. All 30,720 production scenarios and all 492 scheduled cost attempts
+were executed. Thirty-nine of 41 paired cost cases completed; two cases have
+computational timeouts. Primary releases and runs are listed in
 [primary_runs.json](provenance/primary_runs.json); workflow success alone does not
 establish complete experimental acceptance.
+
+At the primary deadline, the descriptive mean absolute error across ten
+instances is 2.43 percentage points for F1→F1 and 1.75 for refitted F2→F2.
+The frozen F1→F2 error is 20.71 points. Complete observations reproduce
+calibration frequency exactly; sparse records can yield broad identification
+intervals. These results do not establish forecast superiority over frequency.
 
 The separate plan generator searches assignments and operation order under
 selectable nominal-duration, deadline-success, worst-regime and Pareto objectives.

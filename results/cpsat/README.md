@@ -23,3 +23,7 @@ The results establish improvement over the original plans on these synthetic
 benchmarks, without claiming a new optimizer. The CP-seeded probability-search
 interface is a separate version; its functional tests do not turn these
 standalone CP holdout results into a validation of that new portfolio.
+
+The [interface verification](interface-verification.json),
+[CP/interface tests](interface-tests.txt) and [planning tests](planning-tests.txt)
+come from [Actions run 43720771163](https://github.com/a-a-k/industrial/actions/runs/43720771163).
