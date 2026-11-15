@@ -191,6 +191,15 @@ def report(source_run=None):
         optimizer_novelty_claimed=False,SIMPAT_superiority_claimed=False,
         completed_runner_hours_before_report=read_json('output/budget.json')['completed_s']/3600,
         source_run=suffix,commit=os.environ['GITHUB_SHA'],run_id=os.environ['GITHUB_RUN_ID'])
+    if source_run is not None:
+        try:
+            previous,_=fetch('planner-report-'+suffix,'output/previous-planner-report')
+            prior=read_json(previous/'RESULT.json')
+        except Exception as error:result['previous_report_unavailable']=str(error)
+        else:
+            if prior['status']=='COMPLETE' and complete and prior['comparisons']!=comparisons:
+                raise ValueError('report-only revision changed the statistical comparisons')
+            result['previous_statistical_comparisons_preserved']=prior['comparisons']==comparisons
     write_json(root/'RESULT.json',result);write_json(root/'evidence.json.gz',records)
     if rows:
         with (root/'plans.csv').open('w',newline='') as stream:
