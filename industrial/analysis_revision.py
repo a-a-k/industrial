@@ -11,6 +11,27 @@ from .common import actions_only,canonical,digest,execute,read_json,write_json
 from .releases import fetch
 
 
+def compare_condition(request,output):
+    path=Path(request['reference_source'])
+    if digest(path.read_bytes())!=request['reference_sha256']:raise ValueError('reference analysis checksum')
+    spec=importlib.util.spec_from_file_location('industrial.reference_solver_v1',path)
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    compiled=None;comparisons=[]
+    for case in request['cases']:
+        model=read_json(case['model'])
+        if compiled is None:compiled=module.Compiled(model)
+        else:
+            previous=compiled.model
+            for name in ('graph','replicas','operation','demand_controls','required_edge_completions','signal_ids',
+                         'completion_signals','entry_completion_signal','timely_signal'):
+                if previous[name]!=model[name]:raise ValueError('semantic schema changed across cases')
+            compiled.model=model
+        reference=compiled.solve(witnesses=False)['estimates']
+        if reference!=case['expected']:raise ValueError('old/new exact extrema mismatch')
+        comparisons.append(dict(condition=request['condition'],case=case['case'],status='EQUAL',samples=model['sample_count']))
+    write_json(output,dict(status='PASS',comparisons=comparisons))
+
+
 def run(registry):
     manifest=read_json('provenance/analysis_compatibility.json')
     root=Path('output/analysis-revision');root.mkdir(parents=True,exist_ok=True)
@@ -20,8 +41,6 @@ def run(registry):
     with urllib.request.urlopen(request,timeout=60) as response:source=base64.b64decode(json.load(response)['content'])
     if digest(source)!=manifest['old_sha256']:raise ValueError('old analysis source checksum mismatch')
     old_file=root/'reference_solver_v1.py';old_file.write_bytes(source)
-    spec=importlib.util.spec_from_file_location('industrial.reference_solver_v1',old_file)
-    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
     old_cases={};retained=[];unavailable=[]
     for index,tag in enumerate(registry['old_fits']):
         try:folder,receipt=fetch(tag,f'output/revision-old-{index}')
@@ -44,21 +63,12 @@ def run(registry):
         if report['implementation']['industrial/solver.py']!=manifest['new_sha256']:
             raise ValueError('calibration fits do not use one qualified analysis version')
         condition=report['condition'];new_reports[condition]=report
-        compiled=None
+        cases=[]
         for result in report['results']:
             if result['analysis_version']!=manifest['analysis_version']:
                 raise ValueError('mixed certificate construction versions')
-            case=result['case'];model=read_json(folder/case/'model.json.gz')
-            if compiled is None:compiled=module.Compiled(model)
-            else:
-                previous=compiled.model
-                for name in ('graph','replicas','operation','demand_controls','required_edge_completions','signal_ids',
-                             'completion_signals','entry_completion_signal','timely_signal'):
-                    if previous[name]!=model[name]:raise ValueError('semantic schema changed across cases')
-                compiled.model=model
-            reference=compiled.solve(witnesses=False)['estimates']
-            if reference!=result['estimates']:raise ValueError('old/new exact extrema mismatch')
-            comparisons.append(dict(condition=condition,case=case,status='EQUAL',samples=model['sample_count']))
+            case=result['case']
+            cases.append(dict(case=case,model=str(folder/case/'model.json.gz'),expected=result['estimates']))
             key=(condition,case)
             if key in old_cases:
                 old=old_cases[key]
@@ -66,7 +76,13 @@ def run(registry):
                         or old['model_sha256']!=result['model_sha256'] or old['input_sha256']!=result['input_sha256']):
                     raise ValueError('retained old case differs in model, input or prediction')
                 retained_comparisons.append(dict(condition=condition,case=case,status='EQUAL'))
-        del compiled
+        request_path=root/f'{condition}-request.json';out_path=root/f'{condition}-scalar-comparison.json'
+        write_json(request_path,dict(condition=condition,reference_source=str(old_file),reference_sha256=manifest['old_sha256'],cases=cases))
+        process=execute([sys.executable,'-m','industrial.analysis_revision','--compare',str(out_path),str(request_path)])
+        if process['status']!='OK':
+            write_json(root/f'{condition}-comparison-process.json',process)
+            raise ValueError('bounded old/new scalar comparison unavailable')
+        comparisons.extend(read_json(out_path)['comparisons'])
     if len(new_reports)!=20 or len(comparisons)!=300 or len(retained_comparisons)!=len(old_cases):
         raise ValueError('incomplete uniform scalar equivalence census')
     preflight,_=fetch(registry['preflight'],'output/revision-preflight');maxima=[]
@@ -90,4 +106,6 @@ def run(registry):
 
 
 if __name__=='__main__':
-    actions_only();p=argparse.ArgumentParser();p.add_argument('registry');a=p.parse_args();run(read_json(a.registry))
+    actions_only();p=argparse.ArgumentParser();p.add_argument('--compare');p.add_argument('registry');a=p.parse_args()
+    if a.compare:compare_condition(read_json(a.registry),a.compare)
+    else:run(read_json(a.registry))
