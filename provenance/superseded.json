@@ -1,4 +1,9 @@
 {
+  "measurement-run-43700293518": {
+    "reason": "Cancelled while pending, with zero jobs, to add explicit saved-model/source correspondence and the originally required small exhaustive timing control before final measurements.",
+    "measured_processes": 0,
+    "use_for_final_cost_acceptance": false
+  },
   "analysis-run-43691658559": {
     "reason": "Stopped before validation for a qualified equivalent certificate-construction revision; all twenty calibration fits are recomputed uniformly.",
     "raw_results_and_elapsed_costs_retained": true,
