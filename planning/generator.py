@@ -1,6 +1,8 @@
 """Feasible assignment/order generation with selectable empirical objectives."""
 from copy import deepcopy
+import hashlib
 import heapq
+import json
 import random
 import time
 
@@ -17,9 +19,13 @@ def from_conditions(conditions):
     from .list_v1 import schedule
     data=deepcopy(conditions);machines=data.pop('machines')
     if type(machines) is not int or machines<=0:raise ValueError('positive machine count required')
+    data.setdefault('delta',5)
     data['queues']=[[] for _ in range(machines)]
     for op in data['operations']:
         op.setdefault('release',0);op.setdefault('predecessors',[])
+    if 'dataset_id' not in data:
+        encoded=json.dumps(dict(data,machines=machines),sort_keys=True,separators=(',',':')).encode()
+        data['dataset_id']='conditions-'+hashlib.sha256(encoded).hexdigest()
     validate_problem(data)
     data['queues']=schedule(data['operations'],machines)
     data['nominal_makespan']=max(op['planned_end'] for op in data['operations'])
@@ -28,18 +34,20 @@ def from_conditions(conditions):
 
 def validate_problem(data):
     ops=data['operations'];machines=len(data['queues'])
+    if type(data.get('delta')) is not int or data['delta']!=5:raise ValueError('this execution contract uses five-tick discretization')
     if not machines or [o['id'] for o in ops]!=list(range(len(ops))):
         raise ValueError('operations must have consecutive integer identities and machines')
     jobs={j['id'] for j in data['jobs']}
     for op in ops:
-        if op['job'] not in jobs or type(op.get('release',0)) is not int or op.get('release',0)<0:
+        if (op['job'] not in jobs or type(op.get('release',0)) is not int
+                or op.get('release',0)<0 or op.get('release',0)%data['delta']):
             raise ValueError('invalid job or release')
         if not op['alternatives']:raise ValueError('operation has no compatible machine')
         seen=set()
         for alternative in op['alternatives']:
             machine,work=alternative['machine'],alternative['work']
             if (type(machine) is not int or not 0<=machine<machines or machine in seen
-                    or type(work) is not int or work<=0):raise ValueError('invalid machine alternative')
+                    or type(work) is not int or work<=0 or work%data['delta']):raise ValueError('invalid machine alternative')
             seen.add(machine)
         if any(type(p) is not int or not 0<=p<len(ops) or p==op['id'] for p in op['predecessors']):
             raise ValueError('invalid predecessor')

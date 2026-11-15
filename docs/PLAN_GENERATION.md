@@ -74,3 +74,8 @@ use the supported fixed-assignment, suspend/resume execution contract; arbitrary
 new production rules require a separate validated adapter.
 An injected evaluator accepts `(plan, objective, remaining_s)` and must raise
 `planning.generator.BudgetStop` instead of returning an incomplete score.
+The raw adapter supplies a deterministic condition hash as its dataset identity
+and the existing five-tick discretization if omitted. Releases and processing
+durations must be integer multiples of five. Benchmark generation and holdout
+use the frozen `plan-generation-v1` tag; raw-interface verification runs
+separately and does not alter those plans or their test bank.

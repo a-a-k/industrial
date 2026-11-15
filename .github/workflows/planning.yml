@@ -4,7 +4,7 @@ on:
     inputs:
       stage:
         type: choice
-        options: [generate, validate, report]
+        options: [verify, generate, validate, report]
         required: true
       instances:
         type: string
@@ -36,7 +36,7 @@ jobs:
       fail-fast: false
       max-parallel: 4
       matrix:
-        instance: ${{ fromJSON(inputs.stage == 'report' && '["report"]' || inputs.instances) }}
+        instance: ${{ fromJSON(inputs.stage == 'report' && '["report"]' || inputs.stage == 'verify' && '["verification"]' || inputs.instances) }}
     container:
       image: python:3.11.16-bookworm@sha256:b99029c95d3d37fb1e4e76d287f7984373dca77c665885986e31b2c95260c13c
       options: --cpus=1 --memory=4g --memory-swap=4g
@@ -82,7 +82,13 @@ jobs:
         run: |
           python -m compileall -q planning/generator.py industrial/plan_campaign.py industrial/measurement.py industrial/small_cost.py industrial/report.py tests/test_planning.py
           python -c 'import os,json;from pathlib import Path;Path("output/plan-registry.json").write_text(json.dumps(json.loads(os.environ["REGISTRY"]),sort_keys=True))'
-          if [ "$STAGE" = generate ]; then
+          if [ "$STAGE" = verify ]; then
+            mkdir -p output/plan-verification/provenance
+            python -m unittest tests.test_planning -v > output/plan-verification/provenance/planning-tests.txt 2>&1
+            cat output/plan-verification/provenance/planning-tests.txt
+            cp -r output/planning-tests output/plan-verification/provenance/
+            python -c 'import os;from pathlib import Path;from industrial.common import digest,write_json;write_json("output/plan-verification/verification.json",dict(status="PASS",commit=os.environ["GITHUB_SHA"],run_id=os.environ["GITHUB_RUN_ID"],source_sha256=digest(Path("planning/generator.py").read_bytes())))'
+          elif [ "$STAGE" = generate ]; then
             mkdir -p output/plans/provenance
             python -m unittest tests.test_planning -v > output/plans/provenance/planning-tests.txt 2>&1
             cat output/plans/provenance/planning-tests.txt
@@ -96,7 +102,10 @@ jobs:
       - name: Preserve schedules, costs and failures
         if: always()
         run: |
-          if [ "$STAGE" = generate ]; then
+          if [ "$STAGE" = verify ]; then
+            folder=plan-verification
+            name=plan-generator-verification
+          elif [ "$STAGE" = generate ]; then
             folder=plans
             name="generated-plans-$INSTANCE"
           elif [ "$STAGE" = validate ]; then

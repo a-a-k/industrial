@@ -16,12 +16,15 @@ def problem():
 
 class PlanningTests(unittest.TestCase):
     def test_conditions_need_no_preexisting_assignments_or_schedule(self):
-        raw=problem();raw['machines']=2;raw.pop('queues');raw.pop('nominal_makespan')
+        raw=problem();raw['machines']=2
+        for key in ('queues','nominal_makespan','dataset_id','delta'):raw.pop(key)
         for op in raw['operations']:
             for key in ('machine','work','planned_start','planned_end'):op.pop(key)
         result=from_conditions(raw)
         self.assertEqual(sorted(i for queue in result['queues'] for i in queue),[0,1,2])
         self.assertTrue(all(op['planned_end']>op['planned_start'] for op in result['operations']))
+        self.assertEqual(result['delta'],5)
+        self.assertEqual(result['dataset_id'],from_conditions(raw)['dataset_id'])
 
     def test_every_tiny_assignment_and_priority_is_feasible_and_independent_engines_agree(self):
         data=problem();validate_problem(data);count=0
