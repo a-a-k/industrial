@@ -1,0 +1,90 @@
+name: Validate the saved short-CP control without new optimization
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: industrial-prefix-comparison
+  cancel-in-progress: false
+env:
+  GH_REPO: ${{ github.repository }}
+  PYTHONPATH: .:vendor/simpat
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  GOMAXPROCS: '1'
+jobs:
+  seal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container:
+      image: python:3.11.16-bookworm@sha256:b99029c95d3d37fb1e4e76d287f7984373dca77c665885986e31b2c95260c13c
+      options: --cpus=1 --memory=4g --memory-swap=4g
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: python scripts/budget.py
+      - uses: ./.github/actions/experiment-environment
+      - run: |
+          python -m compileall -q industrial/prefix_comparison.py
+          python -m industrial.prefix_comparison seal
+      - run: python scripts/publish.py --name prefix-seal --path output/prefix-seal
+  validate:
+    needs: seal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        instance: [Mk01, Mk05, Mk10]
+    container:
+      image: python:3.11.16-bookworm@sha256:b99029c95d3d37fb1e4e76d287f7984373dca77c665885986e31b2c95260c13c
+      options: --cpus=1 --memory=4g --memory-swap=4g
+    env:
+      GH_TOKEN: ${{ github.token }}
+      INSTANCE: ${{ matrix.instance }}
+      TSFG_SOURCE_SSH_KEY: ${{ secrets.TSFG_SOURCE_SSH_KEY }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: python scripts/budget.py
+      - uses: ./.github/actions/experiment-environment
+        with:
+          build: tsfg
+      - name: Compare all four frozen methods on fresh common scenarios
+        run: python -m industrial.prefix_comparison validate "$INSTANCE"
+      - if: always()
+        run: |
+          mkdir -p output/prefix-validation/provenance
+          cp output/budget.json output/prefix-validation/provenance/ || true
+          cp build/*.json output/prefix-validation/provenance/ || true
+          python scripts/publish.py --name "prefix-validation-$INSTANCE" --path output/prefix-validation
+  report:
+    needs: [seal, validate]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container:
+      image: python:3.11.16-bookworm@sha256:b99029c95d3d37fb1e4e76d287f7984373dca77c665885986e31b2c95260c13c
+      options: --cpus=1 --memory=4g --memory-swap=4g
+    env:
+      GH_TOKEN: ${{ github.token }}
+      FINAL_REPORT: '1'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: python scripts/budget.py
+      - uses: ./.github/actions/experiment-environment
+      - run: python -m industrial.prefix_comparison report
+      - if: always()
+        run: |
+          mkdir -p output/prefix-report/provenance
+          cp output/budget.json output/prefix-report/provenance/ || true
+          python scripts/publish.py --name prefix-report --path output/prefix-report

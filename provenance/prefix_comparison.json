@@ -1,0 +1,18 @@
+{
+  "version": "planner-prefix-comparison-v1",
+  "source_generation_run": "43730898043-1",
+  "instances": ["Mk01", "Mk05", "Mk10"],
+  "seeds": [1701, 1702, 1703],
+  "methods": ["cp_nominal", "cp_pool_mc", "cp_short", "hybrid"],
+  "validation_split": "planner-prefix-holdout-v1",
+  "validation_replications_per_law": 1024,
+  "tsfg_subset": 128,
+  "laws": ["F1", "F2"],
+  "comparison_family_size": 54,
+  "one_sided_alpha_denominator": 216,
+  "cp_short_cost": "observed hybrid preparation window plus conservatively allocated process launch/finalization overhead; not an independent standalone timing",
+  "amendment_reason": "Training outputs show exact CP-prefix/hybrid equality for Mk05/1701; early stopping is an obligatory cheap baseline and a possible causal source of apparent resource benefit.",
+  "optimizer_runs_repeated": false,
+  "original_cost_criterion_relaxed": false,
+  "novelty_claimed": false
+}
