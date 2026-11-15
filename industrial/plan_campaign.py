@@ -9,7 +9,7 @@ import resource
 import shutil
 import sys
 import time
-from planning.generator import BudgetStop,decode,search,validate_problem
+from planning.generator import BudgetStop,decode,from_conditions,search,validate_problem
 from .common import actions_only,canonical,digest,execute,read_json,read_rows,write_json
 from .inputs import scenarios
 from .production import simulate,product_ledger,outcomes,check_physics,compare
@@ -22,7 +22,9 @@ def plan_identity(plan):
 
 def search_one(problem_path,folder,objective,seed):
     started=time.perf_counter();root=Path(folder);root.mkdir(parents=True,exist_ok=True)
-    problem=read_json(problem_path);data=problem['dataset'];spec=problem['spec'];validate_problem(data)
+    problem=read_json(problem_path)
+    if 'dataset' not in problem:problem=dict(problem,dataset=from_conditions(problem['conditions']))
+    data=problem['dataset'];spec=problem['spec'];validate_problem(data)
     deadline=problem['deadline'];n=spec['search_replications_per_law']
     needed=[] if objective=='nominal' else (['F1'] if objective=='deadline_f1' else spec['laws'])
     calendars={law:scenarios(data,law,spec['search_split'],n) for law in needed}

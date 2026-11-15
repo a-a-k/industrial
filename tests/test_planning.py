@@ -1,7 +1,7 @@
 from itertools import permutations,product
 from pathlib import Path
 import unittest
-from planning.generator import BudgetStop,decode,initial_genome,search,validate_problem
+from planning.generator import BudgetStop,decode,from_conditions,initial_genome,search,validate_problem
 from industrial.plan_campaign import plan_identity,paired_difference
 from industrial.production import simulate,check_physics,compare
 
@@ -15,6 +15,14 @@ def problem():
 
 
 class PlanningTests(unittest.TestCase):
+    def test_conditions_need_no_preexisting_assignments_or_schedule(self):
+        raw=problem();raw['machines']=2;raw.pop('queues');raw.pop('nominal_makespan')
+        for op in raw['operations']:
+            for key in ('machine','work','planned_start','planned_end'):op.pop(key)
+        result=from_conditions(raw)
+        self.assertEqual(sorted(i for queue in result['queues'] for i in queue),[0,1,2])
+        self.assertTrue(all(op['planned_end']>op['planned_start'] for op in result['operations']))
+
     def test_every_tiny_assignment_and_priority_is_feasible_and_independent_engines_agree(self):
         data=problem();validate_problem(data);count=0
         for assignments in product(range(2),range(2),range(1)):

@@ -63,11 +63,13 @@ python -m industrial.plan_campaign search problem.json --folder output/generated
   --objective worst_regime --seed 1701
 ```
 
-`problem.json` contains `dataset` (operations with compatible machine/work
-alternatives, predecessors and releases; machine queues and a starting schedule),
-`deadline` in the same integer ticks, and `spec` following
-`provenance/plan_generation.json`. The starting schedule defines the fixed
-reference scale. Search produces new assignments and queues. The instance must
+`problem.json` contains `conditions` (machine count, jobs and operations with
+compatible machine/work alternatives, predecessors and releases), `deadline` in
+the same integer ticks, and `spec` following `provenance/plan_generation.json`.
+No starting schedule is required: list_v1 constructs it from the conditions and
+its cost is included in preparation. Alternatively `dataset` can supply a
+previously frozen starting schedule, as in the benchmark campaign. The starting
+schedule defines the fixed reference scale. Search produces new assignments and queues. The instance must
 use the supported fixed-assignment, suspend/resume execution contract; arbitrary
 new production rules require a separate validated adapter.
 An injected evaluator accepts `(plan, objective, remaining_s)` and must raise

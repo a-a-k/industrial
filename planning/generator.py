@@ -12,6 +12,20 @@ class BudgetStop(Exception):
     """An incomplete evaluation is censored, never admitted as a candidate score."""
 
 
+def from_conditions(conditions):
+    """Construct the initial schedule from constraints; no ready plan is required."""
+    from .list_v1 import schedule
+    data=deepcopy(conditions);machines=data.pop('machines')
+    if type(machines) is not int or machines<=0:raise ValueError('positive machine count required')
+    data['queues']=[[] for _ in range(machines)]
+    for op in data['operations']:
+        op.setdefault('release',0);op.setdefault('predecessors',[])
+    validate_problem(data)
+    data['queues']=schedule(data['operations'],machines)
+    data['nominal_makespan']=max(op['planned_end'] for op in data['operations'])
+    return data
+
+
 def validate_problem(data):
     ops=data['operations'];machines=len(data['queues'])
     if not machines or [o['id'] for o in ops]!=list(range(len(ops))):
