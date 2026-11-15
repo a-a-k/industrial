@@ -11,7 +11,7 @@
   "analysis_version": "industrial-cudd-cofactor-witness-v2",
   "validation_acquisition_run": 43699205407,
   "validation_descriptive_identification_run": 43700243231,
-  "evaluation_release": null,
+  "evaluation_release": "evaluation-43704811386-1",
   "measurement_runs": [
     43701390065
   ],
