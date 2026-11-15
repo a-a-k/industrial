@@ -43,6 +43,12 @@ def seal():
                 observed_preparation_s=hr['preparation_s'],allocated_process_overhead_s=overhead,
                 cp_only_wall_s=hr['cp_seed']['model_build_and_search_s'],cp_only_cpu_s=hr['cp_seed']['cpu_s'],
                 physical_sha256=physical(prefix))
+            for method in spec['methods']:
+                plan=read_json(folder/(method+'.json'))
+                with (folder/(method+'.csv')).open('w',newline='') as stream:
+                    fields=['id','job','machine','work','planned_start','planned_end']
+                    writer=csv.DictWriter(stream,fieldnames=fields,extrasaction='ignore')
+                    writer.writeheader();writer.writerows(plan['operations'])
             entries.append(dict(instance=instance,seed=seed,generation_release=tag,
                 archive_sha256=receipt['archive_sha256'],methods=methods))
     write_json(root/'seal.json',dict(status='SEALED',profile=spec,entries=entries,
