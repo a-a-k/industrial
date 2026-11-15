@@ -23,6 +23,16 @@ def run(registry):
     p,proot=load(registry['preflight'],'preflight.json','preflight')
     e,eroot=load(registry['evaluation'],'evaluation.json','evaluation')
     revision,revision_root=load(registry['analysis_revision'],'revision.json','analysis-revision')
+    preparation_proof=None
+    if registry.get('preparation_revision'):
+        preparation_proof,_=load(registry['preparation_revision'],'qualification.json','preparation-revision')
+    retired_preparations=[]
+    for index,tag in enumerate(registry.get('superseded_preparations',[])):
+        value,_=load(tag,'measurement.json',f'old-preparation-{index}')
+        if value is not None:
+            retired_preparations.append(dict(release=tag,**value))
+            if value['preparation']['status']!='TIMEOUT' or value['attempts']:
+                missing.append(dict(release=tag,error='only preparation timeouts with no method attempts may be replaced'))
     measures=[]
     for index,tag in enumerate(registry['measurements']):
         value,folder=load(tag,'measurement.json',f'measure-{index}')
@@ -36,6 +46,10 @@ def run(registry):
             for pair in spec['saved_R_pairs']:required.append(f'{condition}:{mode}:512:saved_R:{"-".join(pair)}')
     required.append(spec['small_model_control']['case'])
     by_case={m['case']:m for m in measures}
+    new_preparation=[m for m in measures if m.get('preparation_qualification')]
+    preparation_accepted=not new_preparation or (preparation_proof is not None and preparation_proof['status']=='PASS'
+        and all(m['preparation_qualification']==registry.get('preparation_revision') for m in new_preparation))
+    if not preparation_accepted:missing.append(dict(error='revised replay preparation lacks its exact-byte qualification'))
     final_solver=read_json('provenance/analysis_compatibility.json')['new_sha256']
     for m in measures:
         if m.get('analysis_source_sha256')!=final_solver:
@@ -51,7 +65,7 @@ def run(registry):
         E4='PASS' if e and len(e['fit_statuses'])==20 and len(e['validation_reanalysis_statuses'])==20
             and all(v=='PASS' for v in [*e['fit_statuses'].values(),*e['validation_reanalysis_statuses'].values()]) else 'PARTIAL',
         E5='PASS' if e and e['status']=='PASS' else 'PARTIAL',
-        E6='PASS' if len(by_case)==len(required) and all(m['status']=='COMPLETE' for m in measures) else 'PARTIAL')
+        E6='PASS' if len(by_case)==len(required) and all(m['status']=='COMPLETE' for m in measures) and preparation_accepted else 'PARTIAL')
     status='COMPLETE' if all(v=='PASS' for v in blocks.values()) and not missing else 'PARTIAL'
     banks=e['banks'] if e else []
     counters=dict(stochastic_registered=sum(b['registered'] for b in banks),
@@ -62,9 +76,11 @@ def run(registry):
         measurement_processes=sum(len(m['attempts']) for m in measures),
         measurement_timeouts=sum(a['status']=='TIMEOUT' for m in measures for a in m['attempts']),
         measurement_failed=sum(a['status']=='FAILED' for m in measures for a in m['attempts']),
-        measurement_unrun=sum(a['status']=='JOB_BUDGET_UNRUN' for m in measures for a in m['attempts']),
+        measurement_unrun=sum(a['status']=='JOB_BUDGET_UNRUN' for m in measures for a in m['attempts'])
+            +sum(max(0,12-len(m['attempts'])) for m in measures),
         preparation_timeouts=sum(m['preparation']['status']=='TIMEOUT' for m in measures),
-        preparation_failed=sum(m['preparation']['status'] not in ('OK','SAVED_MODEL','TIMEOUT') for m in measures))
+        preparation_failed=sum(m['preparation']['status'] not in ('OK','SAVED_MODEL','TIMEOUT') for m in measures),
+        superseded_preparation_timeouts=sum(m['preparation']['status']=='TIMEOUT' for m in retired_preparations))
     elapsed=budget['completed_s']/3600
     result=dict(status=status,blocks=blocks,counters=counters,missing=missing,registry=registry,
         cost_cases_required=len(required),cost_cases_available=len(by_case),
@@ -74,6 +90,8 @@ def run(registry):
     write_json(root/'RESULT.json',result)
     write_json(root/'registry.json',registry)
     write_json(root/'cost-measurements.json.gz',measures)
+    write_json(root/'superseded-preparations.json.gz',retired_preparations)
+    if preparation_proof is not None:write_json(root/'preparation-revision.json',preparation_proof)
     if revision is not None:write_json(root/'analysis-revision.json',revision)
     if e is not None:write_json(root/'evaluation.json.gz',e)
     # Preserve failed infrastructure jobs independently from scientific result status.
@@ -82,7 +100,8 @@ def run(registry):
     (root/'workflow-history.jsonl').write_text(raw)
     cost_fields=['case','status','method','required','completed','timeouts','completion_fraction',
         'median_wall_s','median_completed_only_diagnostic_s','median_cpu_s','median_peak_rss_bytes','median_representation_bytes',
-        'shared_setup_s','preparation_status','method_all_attempts_wall_s','pair_with_setup_wall_s']
+        'shared_setup_s','preparation_status','preparation_encoding','preparation_qualification',
+        'method_all_attempts_wall_s','pair_with_setup_wall_s']
     with (root/'costs.csv').open('w',newline='') as stream:
         writer=csv.DictWriter(stream,fieldnames=cost_fields);writer.writeheader()
         for m in measures:
@@ -90,6 +109,8 @@ def run(registry):
                 wall=lambda row:row.get('process',{}).get('wall_s',0)
                 writer.writerow(dict(case=m['case'],status=m['status'],method=method,**summary,
                     shared_setup_s=m['shared_setup_s'],preparation_status=m['preparation']['status'],
+                    preparation_encoding=(m.get('load') or {}).get('encoding_version','original'),
+                    preparation_qualification=m.get('preparation_qualification',''),
                     method_all_attempts_wall_s=sum(wall(r) for r in m['attempts'] if r['method']==method),
                     pair_with_setup_wall_s=m['shared_setup_s']+sum(wall(r) for r in m['attempts'])))
     if eroot is not None:
@@ -138,7 +159,8 @@ def run(registry):
         'Превосходство над калибровочной частотой не предполагается.', '', '## Вычислительные затраты','',
         f"Обязательных парных случаев: {len(required)}; получено {len(by_case)}; полностью завершено {result['cost_cases_complete']}. "
         f"Тайм-аутов: {counters['measurement_timeouts']}; ошибок процессов: {counters['measurement_failed']}; незапущенных повторов: {counters['measurement_unrun']}.",
-        f"Отдельно при подготовке нагрузки: тайм-аутов {counters['preparation_timeouts']}; ошибок {counters['preparation_failed']}.",
+        f"В итоговых случаях подготовки нагрузки: тайм-аутов {counters['preparation_timeouts']}; ошибок {counters['preparation_failed']}. "
+        f"Отдельно сохранено предыдущих тайм-аутов подготовки до запуска методов: {counters['superseded_preparation_timeouts']}.",
         'Каждая пара выполнена на одном runner, в контейнере с одним ядром и лимитом 4 GiB. Один прогрев и пять измеряемых свежих процессов на метод. '
         'Прогревы и подготовка сохранены отдельно; времена тайм-аутов цензурированы. '
         'Медианы отношений публикуются только при пяти корректных завершённых парах. Повторённые журналы — нагрузка, не новые производственные испытания.',
@@ -159,6 +181,13 @@ def run(registry):
     for m in sorted(measures,key=lambda x:x['case']):
         total=m['shared_setup_s']+sum(r.get('process',{}).get('wall_s',0) for r in m['attempts'])
         lines.append(f"| {m['case']} | {m['shared_setup_s']:.3f} | {total:.3f} |")
+    if preparation_proof is not None:
+        lines += ['', 'Подготовка повторного журнала использует кэш канонических шаблонов. '
+            'Квалификация подтвердила точные SHA-256 прежних gzip-файлов, обработку коллизий идентификатора '
+            'и неизменность измеряемого метода и защищённых модулей. Лимит 300 секунд сохранён. '
+            'Повторены только случаи, в которых прежняя подготовка завершилась тайм-аутом до запуска методов; '
+            'старые измерения методов не заменялись. Затраты прежних подготовок, квалификации и повторов '
+            'включены в общий runner-бюджет; версии подготовки указаны в costs.csv.']
     lines += ['', '## Границы выводов и невыполненные обязательства','',
         'Проверяется идентификация по синтетическим производственным наблюдениям. Данные реального оборудования и экономический выбор резерва не исследовались. '
         'Перенос относится к процедуре, а не к численным параметрам между разными экземплярами. Mk08–Mk10 ранее использовались в отдельном TSFG исследовании.',
