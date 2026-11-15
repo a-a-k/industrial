@@ -4,7 +4,7 @@ on:
     inputs:
       task:
         type: choice
-        options: [analysis_revision, seal, evaluate, report]
+        options: [analysis_revision, preparation_revision, seal, evaluate, report]
         required: true
       registry:
         type: string
@@ -54,6 +54,8 @@ jobs:
             python -m industrial.report output/registry.json
           elif [ "$TASK" = analysis_revision ]; then
             python -m industrial.analysis_revision output/registry.json
+          elif [ "$TASK" = preparation_revision ]; then
+            python -m industrial.preparation_revision output/registry.json
           else
             python -m industrial.evaluation "$TASK" output/registry.json
           fi
@@ -63,6 +65,10 @@ jobs:
           if [ "$TASK" = analysis_revision ]; then
             mkdir -p output/analysis-revision
             python scripts/publish.py --name analysis-revision --path output/analysis-revision
+          elif [ "$TASK" = preparation_revision ]; then
+            mkdir -p output/preparation-revision/provenance
+            cp output/budget.json output/preparation-revision/provenance/
+            python scripts/publish.py --name preparation-revision --path output/preparation-revision
           elif [ "$TASK" = seal ]; then
             mkdir -p output/seal
             python scripts/publish.py --name seal --path output/seal

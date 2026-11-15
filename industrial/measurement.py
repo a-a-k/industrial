@@ -19,15 +19,27 @@ def prepare(packet_path,folder,count):
     records=defaultdict(list)
     for r in packet['records']:records[r['attempt']].append(r)
     attempts=packet['attempts'];n=len(attempts);started=time.perf_counter()
-    def rows():
-        for index in range(count):
-            source=attempts[index%n];aid=f'load:{index:06d}'
-            yield dict(attempt=dict(source,id=aid,source_attempt=source['id']),
-                       records=[dict(r,attempt=aid) for r in records[source['id']]])
-    write_json(folder/'contract.json',packet['contract']);write_rows(folder/'log.jsonl.gz',rows())
+    marker='__industrial_load_identifier__'
+    while True:
+        token=canonical(marker);templates=[]
+        for source in attempts:
+            original=records[source['id']]
+            encoded=canonical(dict(attempt=dict(source,id=marker,source_attempt=source['id']),
+                records=[dict(r,attempt=marker) for r in original]))+b'\n'
+            pieces=encoded.split(token)
+            if len(pieces)!=len(original)+2:break
+            templates.append(pieces)
+        if len(templates)==n:break
+        marker+='_'  # An existing JSON token matched the placeholder; choose a fresh one.
+    write_json(folder/'contract.json',packet['contract'])
+    with (folder/'log.jsonl.gz').open('wb') as raw:
+        with gzip.GzipFile(filename='',fileobj=raw,mode='wb',mtime=0) as stream:
+            for index in range(count):
+                stream.write(canonical(f'load:{index:06d}').join(templates[index%n]))
     write_json(folder/'load.json',dict(attempts=count,unique_production_attempts=min(count,n),
         preparation_s=time.perf_counter()-started,log_bytes=(folder/'log.jsonl.gz').stat().st_size,
-        parent_packet_sha256=digest(Path(packet_path).read_bytes()),statistical_sample_size_increased=False))
+        parent_packet_sha256=digest(Path(packet_path).read_bytes()),statistical_sample_size_increased=False,
+        encoding_version='canonical-template-v1'))
 
 
 def run_method(folder,method,query,deadline,result_path,saved=None):
@@ -129,6 +141,16 @@ def paired(case,observation_tag,fit_tag):
             raise ValueError('saved cost model or parent packet checksum differs')
         prep=dict(status='SAVED_MODEL',source_fit=fit_tag)
     else:
+        from inspect import getsource
+        import ast
+        qualification=os.environ.get('PREPARATION_QUALIFICATION')
+        if not qualification:raise ValueError('revised preparation requires its exact-byte qualification')
+        verified,_=fetch(qualification,'output/input-preparation-qualification')
+        proof=read_json(verified/'qualification.json')
+        method_ast=ast.dump(ast.parse(getsource(run_method)),include_attributes=False)
+        if (proof['status']!='PASS' or proof['prepare_source_sha256']!=digest(getsource(prepare).encode())
+                or proof['method_ast_sha256']!=digest(method_ast.encode())):
+            raise ValueError('revised preparation does not match its qualified source')
         prep=execute([sys.executable,'-m','industrial.measurement','prepare',str(observations/entry['file']),
             str(root/'load'),'--count',str(count)])
     setup_s=time.perf_counter()-setup;attempts=[];deadline=entry['deadline'];start=time.monotonic()
@@ -170,6 +192,7 @@ def paired(case,observation_tag,fit_tag):
     write_json(root/'measurement.json',dict(case=case,status='COMPLETE' if complete else 'PARTIAL',condition=condition,
         analysis_source_sha256=digest(Path('industrial/solver.py').read_bytes()),
         observation_release=observation_tag,fit_release=fit_tag,preparation=prep,shared_setup_s=setup_s,
+        preparation_qualification=os.environ.get('PREPARATION_QUALIFICATION'),
         load=read_json(root/'load/load.json') if (root/'load/load.json').exists() else None,
         attempts=attempts,summary=summary,paired_complete=matched,mismatched_repeats=mismatches,
         median_paired_ratio=statistics.median(r['ratio_first_to_second'] for r in matched) if len(matched)==5 else None,

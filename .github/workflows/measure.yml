@@ -5,6 +5,9 @@ on:
       cases:
         type: string
         required: true
+      preparation_qualification:
+        type: string
+        default: ''
 permissions:
   contents: write
   actions: read
@@ -34,6 +37,7 @@ jobs:
       CASE: ${{ matrix.case.id }}
       OBSERVATIONS: ${{ matrix.case.observations }}
       FIT: ${{ matrix.case.fit }}
+      PREPARATION_QUALIFICATION: ${{ inputs.preparation_qualification }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
