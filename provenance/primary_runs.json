@@ -44,6 +44,13 @@
   "implementation_audit_run": 43742757573,
   "implementation_audit_source_commit": "6aec80338253ba03035d6cce999ac0a52b38c5e7",
   "implementation_audit_release": "implementation-audit-43742757573-1",
+  "end_to_end_preregistration_commit": "5133695",
+  "end_to_end_failed_qualification_run": 43755188457,
+  "end_to_end_comparison_run": 43755919167,
+  "end_to_end_comparison_source_commit": "b439a6c85ceed18bab2ed5e404f6ae614901a1b0",
+  "end_to_end_report_release": "end-to-end-report-43755919167-1",
+  "end_to_end_interpretation_run": 43758452294,
+  "end_to_end_interpretation_release": "end-to-end-interpretation-43758452294-1",
   "monetary_budget": 0,
   "operational_runner_hour_limit": 72
 }

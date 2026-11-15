@@ -10,6 +10,15 @@ from subsequent observation analysis and the separate plan optimizers. E6 times
 analysis of already generated observations; it does not measure the complete
 crash-test pipeline against direct Monte Carlo.
 
+The additional [complete input-to-risk comparison](results/end-to-end/REPORT_RU.md)
+has now finished: 648 of 648 processes completed, with no failures or timeouts.
+It includes preparation, freshly generated failure histories, virtual execution,
+the risk estimate and confidence interval. In all 36 condition/runner pairs,
+the existing S1/SIMPAT implementation returned the same answer at higher elapsed
+cost than indexed DAG/direct Monte Carlo, including first-use preparation.
+This is a negative comparative result for the declared fixed-queue task. The
+shared-DAG/SIMPAT control separates representation cost from S1 execution cost.
+
 The [implementation audit](results/implementation-audit/AUDIT_RU.md) reproduced
 and fixed input-boundary defects; all 40 qualification tests passed in
 [GitHub Actions](https://github.com/a-a-k/industrial/actions/runs/43742757573).
@@ -29,7 +38,7 @@ benefit of additional local search. It returned its exact CP-prefix schedule in
 seven of nine conditions; the two changed schedules showed no confirmed gain
 over that prefix. All plans and seeds are retained with complete costs.
 
-The current strong planning results and actual schedules are available in the
+The standalone CP-SAT validation and actual schedules are available in the
 [CP-SAT report](results/cpsat/REPORT_RU.md) and
 [schedule files](results/cpsat/README.md). On Mk10, the nominal duration is
 375 → 221; a fresh independent holdout gives deadline success 19.04% → 84.57%

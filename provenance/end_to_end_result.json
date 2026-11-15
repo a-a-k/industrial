@@ -3,6 +3,16 @@
   "source_commit": "b439a6c85ceed18bab2ed5e404f6ae614901a1b0",
   "report_release": "end-to-end-report-43755919167-1",
   "qualification_release": "end-to-end-qualification-43755919167-1",
+  "interpretation_run_id": 43758452294,
+  "interpretation_source_commit": "cf430a60f7f36e4eaea3cdade7759a9f1c11023b",
+  "interpretation_release": "end-to-end-interpretation-43758452294-1",
+  "comparison_status": "COMPLETE",
+  "verdict": "NO_ESTABLISHED_ADVANTAGE",
+  "positive_advantage_criterion_met": false,
+  "completed_processes_including_warmups": 648,
+  "timeouts": 0,
+  "failed_processes": 0,
+  "unrun_processes": 0,
   "superseded_premeasurement_runs": [43755188457],
   "interpretation": "descriptive full-cost comparison of existing implementations; fixed-n conditional virtual risk; no new statistical estimator or real-factory validation claim"
 }

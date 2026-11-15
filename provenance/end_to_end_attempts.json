@@ -12,6 +12,21 @@
       "qualification_release": "end-to-end-qualification-43755188457-1",
       "report_release": "end-to-end-report-43755188457-1",
       "superseded_as_primary_comparison": true,
+      "costs_retained": true,
+      "partial_report_counter_note": "6144 was the planned failure-history population; no main matrix ran in this failed qualification"
+    },
+    {
+      "run_id": 43755919167,
+      "source_commit": "b439a6c85ceed18bab2ed5e404f6ae614901a1b0",
+      "status": "COMPLETE",
+      "core_tests_passed": 26,
+      "accepted_timed_processes_including_warmups": 648,
+      "production_matrix_started": true,
+      "timeouts": 0,
+      "failed_processes": 0,
+      "unrun_processes": 0,
+      "qualification_release": "end-to-end-qualification-43755919167-1",
+      "report_release": "end-to-end-report-43755919167-1",
       "costs_retained": true
     }
   ]
