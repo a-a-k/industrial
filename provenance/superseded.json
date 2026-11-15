@@ -1,4 +1,18 @@
 {
+  "evaluation-run-43704811386": {
+    "reason": "The computation step completed, but release creation failed with GitHub workflow-target permission HTTP 403. Repeat only the independent analysis of the same immutable inputs using corrected publication.",
+    "production_bank_unchanged": true,
+    "elapsed_costs_and_workflow_logs_retained": true,
+    "calculated_output_archive_available": false,
+    "use_for_final_acceptance": false
+  },
+  "plan-validation-run-43705814512": {
+    "reason": "All computation steps completed, but release creation failed with HTTP 403. Repeat the same fixed plans and seeded holdout; only scripts/publish.py differs in the frozen replacement source.",
+    "independent_sample_size_increased": false,
+    "elapsed_costs_and_workflow_logs_retained": true,
+    "calculated_output_archives_available": false,
+    "use_for_final_acceptance": false
+  },
   "measurement-run-43700293518": {
     "reason": "Cancelled while pending, with zero jobs, to add explicit saved-model/source correspondence and the originally required small exhaustive timing control before final measurements.",
     "measured_processes": 0,
