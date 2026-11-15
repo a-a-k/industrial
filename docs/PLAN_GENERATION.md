@@ -13,7 +13,7 @@ The objectives are `nominal` (minimum failure-free makespan), `deadline_f1`
 These are best-found schedules under a finite search budget. Global optimality
 and a complete Pareto front are not claimed.
 
-Use the same standard multistart local-search implementation for all objectives:
+The frozen v1 campaign uses the same standard multistart local-search implementation for all objectives:
 change one compatible assignment or swap operation priorities; a serial feasible
 decoder enforces predecessors, releases and single-machine capacity. Restart
 after 32 unsuccessful moves. Preserve the initial incumbent. Common calibration
@@ -65,11 +65,13 @@ This block measures the practical effect of choosing an objective for a known
 search method. It does not establish optimizer novelty or superiority over
 stochastic scheduling literature. E1–E6 acceptance remains separate.
 
-The callable interface is `planning.generator.search(data, objective, evaluator,
-identity, budget_s, seed)`. For the pinned direct simulator, execute on Actions:
+The current command selects CP-SAT for `nominal` and the validated direct-simulation
+search for `deadline_f1`, `worst_regime` and `pareto`. The standard CP-SAT baseline
+and its independent holdout are specified in [CPSAT_BASELINE.md](CPSAT_BASELINE.md).
+The frozen v1 campaign and its output files remain unchanged. Execute on Actions:
 
 ```sh
-python -m industrial.plan_campaign search problem.json --folder output/generated \
+python -m industrial.plan problem.json --folder output/generated \
   --objective worst_regime --seed 1701
 ```
 
@@ -89,3 +91,11 @@ and the existing five-tick discretization if omitted. Releases and processing
 durations must be integer multiples of five. Benchmark generation and holdout
 use the frozen `plan-generation-v1` tag; raw-interface verification runs
 separately and does not alter those plans or their test bank.
+
+For `--objective nominal`, use the isolated Python environment installed from
+the hash-locked `cpsat-environment-43719097005-1` release. The output is
+`schedule.json` with assignments, machine queues and start/end times, plus
+`result.json` with the solver status and lower bound. `OPTIMAL` certifies the
+nominal objective only; `FEASIBLE` reports the best solution found within the
+budget. The other objectives retain `plan-XX.json` and the recorded empirical
+search results. The callable entry point is `industrial.plan.generate`.

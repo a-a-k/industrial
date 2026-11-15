@@ -1,4 +1,12 @@
 {
+  "measurement-Mk10-F2-available-100000-R-full-projection-43709223426-1": {
+    "reason": "Replay preparation exceeded 300 seconds before any method process started. An exact-byte-qualified template preparation repeated the same case with the unchanged method code and process limit.",
+    "replacement": "measurement-Mk10-F2-available-100000-R-full-projection-43713672472-1",
+    "qualification": "preparation-revision-43713071637-1",
+    "original_method_attempts": 0,
+    "original_preparation_cost_retained": true,
+    "use_for_final_cost_acceptance": false
+  },
   "evaluation-run-43704811386": {
     "reason": "The computation step completed, but release creation failed with GitHub workflow-target permission HTTP 403. Repeat only the independent analysis of the same immutable inputs using corrected publication.",
     "production_bank_unchanged": true,

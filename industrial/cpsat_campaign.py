@@ -2,6 +2,7 @@
 import csv
 import os
 from pathlib import Path
+import shutil
 import sys
 from .common import actions_only,canonical,digest,execute,read_json,write_json
 from .inputs import scenarios
@@ -141,9 +142,27 @@ def report():
     (root/'REPORT_RU.md').write_text('\n'.join(lines)+'\n')
 
 
+def export(generation_tag):
+    source,receipt=fetch(generation_tag,'output/cpsat-export-input')
+    generation=read_json(source/'generation.json')
+    if generation['status']!='PASS':raise ValueError('incomplete frozen plans')
+    root=Path('output/cpsat-report/schedules');root.mkdir(parents=True,exist_ok=True)
+    for instance in INSTANCES:
+        original=source/instance/'cp/schedule.json';plan=read_json(original)
+        shutil.copyfile(original,root/(instance+'.json'))
+        with (root/(instance+'.csv')).open('w',newline='') as stream:
+            fields=['id','job','machine','work','planned_start','planned_end']
+            writer=csv.DictWriter(stream,fieldnames=fields,extrasaction='ignore')
+            writer.writeheader();writer.writerows(plan['operations'])
+    write_json(root/'provenance.json',dict(release=generation_tag,
+        archive_sha256=receipt['archive_sha256'],times='integer ticks; 100 ticks per original time unit',
+        machine_indices='zero based',original_reference_C0_preserved=True))
+
+
 if __name__=='__main__':
     actions_only();task=sys.argv[1]
     if task=='generate':generate(sys.argv[2],sys.argv[3],sys.argv[4])
     elif task=='validate':validate(sys.argv[2])
     elif task=='report':report()
+    elif task=='export':export(sys.argv[2])
     else:raise SystemExit('unknown CP baseline stage')

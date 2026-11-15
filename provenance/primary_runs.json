@@ -25,6 +25,9 @@
   "plan_validation_ref": "plan-generation-v1-publish2",
   "plan_generator_verification_run": 43707262091,
   "plan_report_release": "plan-report-43709977990-1",
+  "cpsat_environment_release": "cpsat-environment-43719097005-1",
+  "cpsat_generation_release": "cpsat-plans-43719097005-1",
+  "cpsat_validation_report_release": "cpsat-report-43719097005-1",
   "monetary_budget": 0,
   "operational_runner_hour_limit": 72
 }

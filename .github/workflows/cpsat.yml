@@ -2,6 +2,10 @@ name: Strong CP-SAT planning baseline
 on:
   workflow_dispatch:
     inputs:
+      stage:
+        type: choice
+        options: [campaign, verify]
+        default: campaign
       environment:
         type: string
         default: ''
@@ -28,6 +32,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       PROVIDED_CP_ENVIRONMENT: ${{ inputs.environment }}
+      STAGE: ${{ inputs.stage }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
@@ -41,10 +46,12 @@ jobs:
           cmp requirements.lock output/environment/requirements.lock
           python -m pip install --no-index --find-links output/environment/wheels --require-hashes -r requirements.lock
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        if: inputs.stage != 'verify'
         with:
           go-version: '1.26.0'
           cache: false
       - name: Fetch original S1 and compile independent participants
+        if: inputs.stage != 'verify'
         env:
           TSFG_SOURCE_SSH_KEY: ${{ secrets.TSFG_SOURCE_SSH_KEY }}
         run: |
@@ -66,10 +73,18 @@ jobs:
           .private/cpsat-venv/bin/python -m pip install --no-index --find-links output/cpsat-environment/wheels --require-hashes -r output/cpsat-environment/requirements.lock
       - name: Qualify the nominal model and freeze all three plans
         run: |
-          .private/cpsat-venv/bin/python -m unittest tests.test_cpsat -v
-          python -m industrial.cpsat_campaign generate preflight-43639035427-1 .private/cpsat-venv/bin/python "$CP_ENVIRONMENT"
-          python scripts/publish.py --name cpsat-plans --path output/cpsat-plans
+          mkdir -p output/cpsat-tests
+          .private/cpsat-venv/bin/python -m unittest tests.test_cpsat -v > output/cpsat-tests/tests.txt 2>&1
+          cat output/cpsat-tests/tests.txt
+          if [ "$STAGE" = verify ]; then
+            python -c 'import os;from pathlib import Path;from industrial.common import digest,write_json;write_json("output/cpsat-tests/verification.json",dict(status="PASS",commit=os.environ["GITHUB_SHA"],run_id=os.environ["GITHUB_RUN_ID"],environment=os.environ["CP_ENVIRONMENT"],sources={p:digest(Path(p).read_bytes()) for p in ("industrial/plan.py","planning/cpsat.py","tests/test_cpsat.py")}))'
+            python -m industrial.cpsat_campaign export cpsat-plans-43719097005-1
+          else
+            python -m industrial.cpsat_campaign generate preflight-43639035427-1 .private/cpsat-venv/bin/python "$CP_ENVIRONMENT"
+            python scripts/publish.py --name cpsat-plans --path output/cpsat-plans
+          fi
       - name: Independent fresh holdout and numerical report
+        if: inputs.stage != 'verify'
         run: |
           python -m industrial.cpsat_campaign validate "cpsat-plans-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           python -m industrial.cpsat_campaign report
