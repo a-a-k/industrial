@@ -1,0 +1,112 @@
+name: Generate and test production plans
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        type: choice
+        options: [generate, validate, report]
+        required: true
+      instances:
+        type: string
+        default: '["Mk01","Mk05","Mk10"]'
+      preflight:
+        type: string
+        default: 'preflight-43639035427-1'
+      registry:
+        type: string
+        default: '{}'
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: industrial-campaign
+  cancel-in-progress: false
+env:
+  GH_REPO: ${{ github.repository }}
+  PYTHONPATH: .:vendor/simpat
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  GOMAXPROCS: '1'
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        instance: ${{ fromJSON(inputs.stage == 'report' && '["report"]' || inputs.instances) }}
+    container:
+      image: python:3.11.16-bookworm@sha256:b99029c95d3d37fb1e4e76d287f7984373dca77c665885986e31b2c95260c13c
+      options: --cpus=1 --memory=4g --memory-swap=4g
+    env:
+      STAGE: ${{ inputs.stage }}
+      INSTANCE: ${{ matrix.instance }}
+      PREFLIGHT: ${{ inputs.preflight }}
+      REGISTRY: ${{ inputs.registry }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: python scripts/budget.py
+      - run: apt-get update -qq && apt-get install -y --no-install-recommends gh
+      - name: Install immutable environment
+        run: |
+          gh release download industrial-environment-v1 --pattern environment.tar.gz --dir output
+          tar -xzf output/environment.tar.gz -C output
+          cmp requirements.lock output/environment/requirements.lock
+          python -m pip install --no-index --find-links output/environment/wheels --require-hashes -r requirements.lock
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        if: inputs.stage == 'validate'
+        with:
+          go-version: '1.26.0'
+          cache: false
+      - name: Fetch unchanged S1
+        if: inputs.stage == 'validate'
+        env:
+          TSFG_SOURCE_SSH_KEY: ${{ secrets.TSFG_SOURCE_SSH_KEY }}
+        run: python scripts/fetch_tsfg.py
+      - name: Build required participants
+        if: inputs.stage != 'report'
+        run: |
+          if [ "$STAGE" = validate ]; then
+            python -c 'from industrial.releases import fetch; import os; fetch(os.environ["PREFLIGHT"],"output/input-preflight")'
+            export TSFG_TEST_EVIDENCE=output/input-preflight/preflight/provenance/tsfg-provenance.json
+          else
+            export PUBLIC_ONLY=1
+          fi
+          python scripts/build.py
+      - name: Verify generation and execute the registered stage
+        run: |
+          python -m compileall -q planning/generator.py industrial/plan_campaign.py industrial/measurement.py industrial/small_cost.py industrial/report.py tests/test_planning.py
+          python -c 'import os,json;from pathlib import Path;Path("output/plan-registry.json").write_text(json.dumps(json.loads(os.environ["REGISTRY"]),sort_keys=True))'
+          if [ "$STAGE" = generate ]; then
+            mkdir -p output/plans/provenance
+            python -m unittest tests.test_planning -v > output/plans/provenance/planning-tests.txt 2>&1
+            cat output/plans/provenance/planning-tests.txt
+            cp -r output/planning-tests output/plans/provenance/
+            python -m industrial.plan_campaign generate --instance "$INSTANCE" --preflight "$PREFLIGHT"
+          elif [ "$STAGE" = validate ]; then
+            python -m industrial.plan_campaign validate output/plan-registry.json --instance "$INSTANCE"
+          else
+            python -m industrial.plan_campaign report output/plan-registry.json
+          fi
+      - name: Preserve schedules, costs and failures
+        if: always()
+        run: |
+          if [ "$STAGE" = generate ]; then
+            folder=plans
+            name="generated-plans-$INSTANCE"
+          elif [ "$STAGE" = validate ]; then
+            folder=plan-validation
+            name="plan-validation-$INSTANCE"
+          else
+            folder=plan-report
+            name=plan-report
+          fi
+          mkdir -p "output/$folder/provenance"
+          cp output/budget.json "output/$folder/provenance/" || true
+          cp build/*.json "output/$folder/provenance/" || true
+          python scripts/publish.py --name "$name" --path "output/$folder"
