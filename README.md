@@ -8,10 +8,12 @@ transfer across Brandimarte Mk01–Mk10, and complete computational costs.
 
 The [three-method comparison protocol](docs/PLANNER_COMPARISON.md) defines a
 separate equal-budget test of CP-SAT, CP incumbent ranking by direct simulation,
-and CP-seeded local probability search. Its
-[Actions campaign](https://github.com/a-a-k/industrial/actions/runs/43730898043)
-freezes every selected plan before opening a fresh holdout. Earlier CP results
-do not establish a benefit from the additional local search.
+and CP-seeded local probability search. The completed
+[three-method report](results/planner-comparison/REPORT_RU.md) and
+[mandatory short-CP control](results/cp-prefix/REPORT_RU.md) do not establish a
+benefit of additional local search. It returned its exact CP-prefix schedule in
+seven of nine conditions; the two changed schedules showed no confirmed gain
+over that prefix. All plans and seeds are retained with complete costs.
 
 The current strong planning results and actual schedules are available in the
 [CP-SAT report](results/cpsat/REPORT_RU.md) and

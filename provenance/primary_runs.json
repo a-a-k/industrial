@@ -36,6 +36,11 @@
   "cpsat_all_objectives_interface_verification_run": 43720771163,
   "planner_comparison_run": 43730898043,
   "planner_comparison_verification_release": "planner-verification-43730898043-1",
+  "planner_comparison_initial_report_release": "planner-report-43730898043-1",
+  "planner_comparison_report_release": "planner-report-43735155027-1",
+  "cp_prefix_control_run": 43734314101,
+  "cp_prefix_control_seal_release": "prefix-seal-43734314101-1",
+  "cp_prefix_control_report_release": "prefix-report-43734314101-1",
   "monetary_budget": 0,
   "operational_runner_hour_limit": 72
 }

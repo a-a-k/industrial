@@ -1,4 +1,11 @@
 {
+  "planner-report-43730898043-1": {
+    "reason": "Report-only revision keeps all 36 statistical comparisons exactly and reports both hybrid and baseline savings for identical schedules. A separate mandatory CP-short control addresses the cheaper shared prefix.",
+    "replacement_report": "planner-report-43735155027-1",
+    "statistical_comparisons_preserved": true,
+    "optimizer_or_holdout_runs_repeated_for_report_revision": false,
+    "use_as_final_report": false
+  },
   "planner-comparison-run-43730585184": {
     "reason": "Source compilation detected an unterminated report string before any optimizer or holdout execution. Correct the report syntax and repeat qualification with the same frozen comparison protocol.",
     "optimization_attempts": 0,

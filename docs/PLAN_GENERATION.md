@@ -105,3 +105,10 @@ the hash-locked `cpsat-environment-43719097005-1` release. The output is
 nominal objective only; `FEASIBLE` reports the best solution found within the
 budget. The other objectives retain `plan-XX.json` and the recorded empirical
 search results. The callable entry point is `industrial.plan.generate`.
+
+The [independent four-method control](../results/cp-prefix/REPORT_RU.md) did not
+establish a quality/cost benefit of the added local search. In seven of nine
+conditions its returned schedule exactly matched its CP prefix, with extra
+expense; the other two changes had no confirmed probability gain over that
+prefix. The probability-search branch remains experimental. Earlier standalone
+CP improvements over the original schedules are not evidence for this branch.
