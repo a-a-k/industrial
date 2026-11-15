@@ -1,0 +1,14 @@
+{
+  "version": "nominal-best-frozen-v1",
+  "name": "nominal_best_frozen",
+  "generations": [
+    "generated-plans-Mk01-43703587587-1",
+    "generated-plans-Mk05-43703587587-1",
+    "generated-plans-Mk10-43703587587-1"
+  ],
+  "selection": "For each instance, minimize nominal makespan over the original plan and every selected plan in all frozen objectives and seeds; break ties by plan SHA256.",
+  "uses_holdout_outcomes": false,
+  "additional_simulations": 0,
+  "reference_cost": "All generation runs contributing candidates, including preparation, simulation, cache work and failures.",
+  "claim_scope": "Strongest nominal-duration reference among these frozen schedules; no claim of global nominal optimality or pure objective effect at matched CPU cost."
+}
