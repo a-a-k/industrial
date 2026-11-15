@@ -8,11 +8,15 @@ on:
       preparation_qualification:
         type: string
         default: ''
+      lane:
+        type: choice
+        options: [standard, single_retry]
+        default: standard
 permissions:
   contents: write
   actions: read
 concurrency:
-  group: industrial-cost-campaign
+  group: ${{ inputs.lane == 'single_retry' && 'industrial-cost-single-retry' || 'industrial-cost-campaign' }}
   cancel-in-progress: false
 env:
   GH_REPO: ${{ github.repository }}
@@ -26,7 +30,7 @@ jobs:
     timeout-minutes: 90
     strategy:
       fail-fast: false
-      max-parallel: 3
+      max-parallel: ${{ inputs.lane == 'single_retry' && 1 || 3 }}
       matrix:
         case: ${{ fromJSON(inputs.cases) }}
     container:
