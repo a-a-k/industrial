@@ -15,6 +15,17 @@ def problem():
 
 
 class PlanningTests(unittest.TestCase):
+    def test_an_additional_nominal_seed_is_evaluated_under_the_requested_probability(self):
+        data=problem();seen=[]
+        seed=([1,0,0],[1,0,2])
+        def evaluate(plan,objective,remaining_s):
+            seen.append(plan_identity(plan))
+            return dict(nominal_makespan=plan['planned_makespan'],p_f1=float(len(seen)==1),p_f2=.5)
+        result=search(data,'deadline_f1',evaluate,plan_identity,10,1701,
+            max_evaluations=2,initial_genomes=[seed])
+        self.assertEqual(len(seen),2)
+        self.assertEqual(result['selected'][0]['plan_sha256'],seen[0])
+
     def test_conditions_need_no_preexisting_assignments_or_schedule(self):
         raw=problem();raw['machines']=2
         for key in ('queues','nominal_makespan','dataset_id','delta'):raw.pop(key)

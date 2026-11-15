@@ -65,8 +65,14 @@ This block measures the practical effect of choosing an objective for a known
 search method. It does not establish optimizer novelty or superiority over
 stochastic scheduling literature. E1–E6 acceptance remains separate.
 
-The current command selects CP-SAT for `nominal` and the validated direct-simulation
-search for `deadline_f1`, `worst_regime` and `pareto`. The standard CP-SAT baseline
+The current command selects CP-SAT for `nominal`. For `deadline_f1`, `worst_regime`
+and `pareto`, CP-SAT receives one quarter of the complete budget, capped at sixty
+seconds, then both its generated plan and the original inexpensive plan are
+evaluated on the same calibration scenarios under the requested objective.
+The direct-simulation search continues within the remaining budget. A nominally
+shorter seed is not admitted as better without its requested probability score.
+Input preparation and CP generation are charged to the same total budget.
+The standard CP-SAT baseline
 and its independent holdout are specified in [CPSAT_BASELINE.md](CPSAT_BASELINE.md).
 The frozen v1 campaign and its output files remain unchanged. Execute on Actions:
 

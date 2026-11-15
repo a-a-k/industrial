@@ -132,17 +132,19 @@ def pareto_representatives(archive,limit):
     return selected
 
 
-def search(data,objective,evaluate,identity,budget_s,seed,max_evaluations=1000,trace=None):
+def search(data,objective,evaluate,identity,budget_s,seed,max_evaluations=1000,trace=None,initial_genomes=()):
     if objective not in OBJECTIVES:raise ValueError('unknown objective')
     validate_problem(data);started=time.perf_counter();source=random.Random(seed)
     genome=initial_genome(data);cache={};archive=[];incumbent=None;best=None;stale=0
+    starting=[genome,*initial_genomes]
     evaluated_records={}
     stats=dict(evaluated=0,cache_hits=0,restarts=0,failures=0,budget_censored_evaluations=0)
     stopping='evaluation_limit'
     for iteration in range(max_evaluations):
         elapsed=time.perf_counter()-started
         if elapsed>=budget_s:stopping='wall_budget';break
-        if iteration:
+        if iteration<len(starting):genome=starting[iteration]
+        else:
             restart=stale>=32
             if objective=='pareto' and archive:genome=source.choice(archive)['genome']
             elif incumbent is not None:genome=incumbent['genome']

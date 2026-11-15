@@ -9,6 +9,21 @@ from tests.test_planning import problem
 
 
 class CpPlanningTests(unittest.TestCase):
+    def test_probability_objectives_evaluate_both_initial_plans_on_the_same_calibration(self):
+        for objective in ('deadline_f1','worst_regime','pareto'):
+            root=Path('output/cpsat-tests/portfolio')/objective
+            spec=dict(search=dict(total_budget_s=30,max_evaluations=2),
+                search_replications_per_law=4,laws=['F1','F2'],search_split='cp-portfolio-interface-test')
+            write_json(root/'problem.json',dict(dataset=problem(),deadline=70,spec=spec))
+            result=generate_under_objective(root/'problem.json',root/'generated',objective,1701)
+            self.assertEqual(result['backend'],'CP-SAT-seeded-direct-simulation')
+            self.assertEqual(result['status'],'PASS')
+            self.assertEqual(result['stats']['evaluated'],2)
+            self.assertTrue(result['selected'])
+            self.assertEqual(result['reference_C0'],60)
+            self.assertEqual(result['deadline'],70)
+            self.assertGreaterEqual(result['preparation_s'],result['cp_seed']['model_build_and_search_s'])
+
     def test_public_interface_generates_nominal_optimum_from_unscheduled_conditions(self):
         raw=problem();raw['machines']=2
         for key in ('queues','nominal_makespan','dataset_id','delta'):raw.pop(key)

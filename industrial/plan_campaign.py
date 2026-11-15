@@ -20,8 +20,9 @@ def plan_identity(plan):
     return digest(canonical(dict(assignments=[(o['machine'],o['work']) for o in plan['operations']],queues=plan['queues'])))
 
 
-def search_one(problem_path,folder,objective,seed):
-    started=time.perf_counter();root=Path(folder);root.mkdir(parents=True,exist_ok=True)
+def search_one(problem_path,folder,objective,seed,additional_initial=(),started=None):
+    started=time.perf_counter() if started is None else started
+    root=Path(folder);root.mkdir(parents=True,exist_ok=True)
     problem=read_json(problem_path)
     if 'dataset' not in problem:problem=dict(problem,dataset=from_conditions(problem['conditions']))
     data=problem['dataset'];spec=problem['spec'];validate_problem(data)
@@ -66,7 +67,8 @@ def search_one(problem_path,folder,objective,seed):
     prep_s=time.perf_counter()-started
     with gzip.open(root/'search-trace.jsonl.gz','wt',encoding='utf-8') as trace:
         result=search(data,objective,evaluate,plan_identity,max(0,spec['search']['total_budget_s']-prep_s-5),seed,
-            max_evaluations=spec['search']['max_evaluations'],trace=lambda row:trace.write(json.dumps(row,separators=(',',':'))+'\n'))
+            max_evaluations=spec['search']['max_evaluations'],initial_genomes=additional_initial,
+            trace=lambda row:trace.write(json.dumps(row,separators=(',',':'))+'\n'))
     for index,entry in enumerate(result['selected']):
         plan=decode(data,entry['genome']);entry['file']=f'plan-{index:02d}.json'
         entry['saved_plan_sha256']=digest(canonical(plan));write_json(root/entry['file'],plan)

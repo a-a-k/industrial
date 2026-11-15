@@ -2,7 +2,7 @@
 import argparse
 from pathlib import Path
 import time
-from planning.generator import OBJECTIVES,from_conditions
+from planning.generator import OBJECTIVES,from_conditions,initial_genome
 from .common import actions_only,read_json,write_json
 
 
@@ -22,9 +22,21 @@ def generate(problem_path,folder,objective='nominal',seed=1701):
         write_json(Path(folder)/'result.json',result)
         return result
     from .plan_campaign import search_one
-    search_one(problem_path,folder,objective,seed)
+    from planning.cpsat import generate as nominal
+    problem=read_json(problem_path);data=problem.get('dataset')
+    if data is None:data=from_conditions(problem['conditions'])
+    budget=problem['spec']['search']['total_budget_s']
+    if budget<20:raise ValueError('at least twenty seconds required for the CP and simulation portfolio')
+    cp_budget=min(60,budget/4)
+    cp=nominal(data,Path(folder)/'cp-seed',cp_budget,seed,started)
+    seed_plan=read_json(Path(folder)/'cp-seed/schedule.json')
+    search_one(problem_path,folder,objective,seed,
+        additional_initial=[initial_genome(seed_plan)],started=started)
     result=read_json(Path(folder)/'result.json')
-    result.update(backend='multistart-direct-simulation',total_interface_s=time.perf_counter()-started)
+    result.update(backend='CP-SAT-seeded-direct-simulation',cp_seed=cp,
+        cp_seed_budget_s=cp_budget,initial_candidates=['original','CP-SAT'],
+        total_interface_s=time.perf_counter()-started)
+    if result['total_interface_s']>budget:result['status']='BUDGET_EXCEEDED'
     write_json(Path(folder)/'result.json',result)
     return result
 

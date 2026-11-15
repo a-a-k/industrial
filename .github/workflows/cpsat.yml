@@ -74,9 +74,12 @@ jobs:
       - name: Qualify the nominal model and freeze all three plans
         run: |
           mkdir -p output/cpsat-tests
+          if [ "$STAGE" = verify ]; then PUBLIC_ONLY=1 python scripts/build.py; fi
           .private/cpsat-venv/bin/python -m unittest tests.test_cpsat -v > output/cpsat-tests/tests.txt 2>&1
           cat output/cpsat-tests/tests.txt
           if [ "$STAGE" = verify ]; then
+            python -m unittest tests.test_planning -v > output/cpsat-tests/planning-tests.txt 2>&1
+            cat output/cpsat-tests/planning-tests.txt
             python -c 'import os;from pathlib import Path;from industrial.common import digest,write_json;write_json("output/cpsat-tests/verification.json",dict(status="PASS",commit=os.environ["GITHUB_SHA"],run_id=os.environ["GITHUB_RUN_ID"],environment=os.environ["CP_ENVIRONMENT"],sources={p:digest(Path(p).read_bytes()) for p in ("industrial/plan.py","planning/cpsat.py","tests/test_cpsat.py")}))'
             python -m industrial.cpsat_campaign export cpsat-plans-43719097005-1
           else
