@@ -1,0 +1,11 @@
+test_gcd_units_preserve_releases_and_objective (tests.test_cpsat.CpPlanningTests.test_gcd_units_preserve_releases_and_objective) ... ok
+test_nominal_optimum_matches_independent_tiny_exhaustion (tests.test_cpsat.CpPlanningTests.test_nominal_optimum_matches_independent_tiny_exhaustion) ... ok
+test_probability_objectives_evaluate_both_initial_plans_on_the_same_calibration (tests.test_cpsat.CpPlanningTests.test_probability_objectives_evaluate_both_initial_plans_on_the_same_calibration) ... ok
+test_public_interface_generates_nominal_optimum_from_unscheduled_conditions (tests.test_cpsat.CpPlanningTests.test_public_interface_generates_nominal_optimum_from_unscheduled_conditions) ... ok
+test_callback_pool_has_feasible_decodable_incumbents_and_final_solution (tests.test_rerank.RerankTests.test_callback_pool_has_feasible_decodable_incumbents_and_final_solution) ... ok
+test_ranking_checks_both_references_on_the_exact_declared_calibration (tests.test_rerank.RerankTests.test_ranking_checks_both_references_on_the_exact_declared_calibration) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.241s
+
+OK

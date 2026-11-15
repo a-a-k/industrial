@@ -4,6 +4,20 @@ Reproducible E1–E6 study of manufacturing semantics, observation-based model
 identification, exact attainable probability bounds, target-preserving reduction,
 transfer across Brandimarte Mk01–Mk10, and complete computational costs.
 
+Virtual execution under sampled failures is part of the method being evaluated.
+The [scope of the results](docs/RESULT_SCOPE_RU.md) distinguishes these crash tests
+from subsequent observation analysis and the separate plan optimizers. E6 times
+analysis of already generated observations; it does not measure the complete
+crash-test pipeline against direct Monte Carlo.
+
+The [implementation audit](results/implementation-audit/AUDIT_RU.md) reproduced
+and fixed input-boundary defects; all 40 qualification tests passed in
+[GitHub Actions](https://github.com/a-a-k/industrial/actions/runs/43742757573).
+Its phase checks explain why projection after full construction took almost the
+same time as full construction. A separate paired measurement of direct reduced
+construction took 107.74 s versus 240.78 s for full construction, with the same R
+interval. This is a postprocessing comparison, not a complete-pipeline speedup.
+
 [Protocol](docs/PROTOCOL.md) · [Plan generation](docs/PLAN_GENERATION.md) · [Source provenance](provenance/sources.json)
 
 The [three-method comparison protocol](docs/PLANNER_COMPARISON.md) defines a
@@ -50,11 +64,16 @@ repeat processes returned answers under a 1200-second limit. Full outputs are
 therefore available for 41 of 41 cases under two explicitly recorded limits.
 The original 300-second series and its PARTIAL status remain unchanged.
 
-At the primary deadline, the descriptive mean absolute error across ten
-instances is 2.43 percentage points for F1→F1 and 1.75 for refitted F2→F2.
-The frozen F1→F2 error is 20.71 points. Complete observations reproduce
-calibration frequency exactly; sparse records can yield broad identification
-intervals. These results do not establish forecast superiority over frequency.
+At the primary deadline, estimates from the initial simulated batch and frequencies
+in the independent validation batch have descriptive mean absolute differences
+across ten instances of 2.43 percentage points under F1 and 1.75 under F2.
+Both batches use the declared failure law; these are synthetic executions, not
+factory history. Applying the F1 estimate to F2 executions gives a 20.71-point
+mean difference. This does not test a forward calculation supplied with the
+correct F2 law. With no artificial deletion of records, subsequent identification
+reproduces the initial simulated batch's frequency exactly; sparse records can
+yield broad identification intervals. These checks establish neither real-factory
+prediction accuracy nor an advantage over direct Monte Carlo.
 
 The separate plan generator searches assignments and operation order under
 selectable nominal-duration, deadline-success, worst-regime and Pareto objectives.
