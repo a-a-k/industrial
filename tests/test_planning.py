@@ -15,6 +15,18 @@ def problem():
 
 
 class PlanningTests(unittest.TestCase):
+    def test_inconsistent_job_terminals_are_rejected_before_generation(self):
+        from copy import deepcopy
+        bad=[]
+        data=problem();data['jobs'][0].pop('final_operation');bad.append(data)
+        data=problem();data['jobs'][0]['final_operation']=1;bad.append(data)
+        data=problem();data['operations'][2]['optional']=True;bad.append(data)
+        data=problem();data['operations'][2]['predecessors']=[];bad.append(data)
+        data=problem();data['jobs'][1]['optional']=True;bad.append(data)
+        for data in bad:
+            with self.subTest(jobs=data['jobs']):
+                with self.assertRaises(ValueError):validate_problem(deepcopy(data))
+
     def test_an_additional_nominal_seed_is_evaluated_under_the_requested_probability(self):
         data=problem();seen=[]
         seed=([1,0,0],[1,0,2])

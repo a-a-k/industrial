@@ -141,13 +141,25 @@ def direct_rows(contract,attempts,records,deadline):
     reject_forbidden(dict(contract=contract,attempts=attempts,records=records))
     ids={a['id'] for a in attempts};ops={o['id']:o for o in contract['operations']}
     if len(ids)!=len(attempts) or not attempts:raise ValueError('invalid direct census')
+    journal={a['id']:a for a in attempts}
+    for attempt in attempts:
+        start,stop=attempt['started_at'],attempt['observed_until']
+        if type(start) is not int or type(stop) is not int or start<0 or stop<start or not start<=deadline<=stop:
+            raise ValueError('invalid attempt boundaries or deadline outside observed horizon')
+        end=attempt.get('finished_at')
+        if end is not None and (type(end) is not int or end<start):
+            raise ValueError('invalid attempt completion timestamp')
     by_attempt=defaultdict(list)
     for r in records:
         if r['attempt'] not in ids:raise ValueError('unregistered attempt')
+        attempt=journal[r['attempt']];time=r.get('time')
+        if type(time) is not int or not attempt['started_at']<=time<=attempt['observed_until']:continue
         if 'op' in r and r['op'] not in ops:raise Unsupported('unexplained required operation')
         if r['kind']=='reassign':raise Unsupported('reassignment')
-        if 'parents' in r and sorted(r['parents'])!=sorted(ops[r['op']]['predecessors']):
+        if 'op' in r and 'parents' in r and sorted(r['parents'])!=sorted(ops[r['op']]['predecessors']):
             raise Unsupported('unexplained required parent')
+        if r['kind'] in ('assignment','receipt','delivery_rejected') and r['machine'] not in ops[r['op']]['compatible_machines']:
+            raise Unsupported('unclassified executor')
         by_attempt[r['attempt']].append(r)
     keys=['C_dispatch']+[ckey(j) for j in contract['jobs']]
     for attempt in attempts:

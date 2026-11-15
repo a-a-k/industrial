@@ -38,6 +38,7 @@ def validate_problem(data):
     if not machines or [o['id'] for o in ops]!=list(range(len(ops))):
         raise ValueError('operations must have consecutive integer identities and machines')
     jobs={j['id'] for j in data['jobs']}
+    if not jobs or len(jobs)!=len(data['jobs']):raise ValueError('unique job identities required')
     for op in ops:
         if (op['job'] not in jobs or type(op.get('release',0)) is not int
                 or op.get('release',0)<0 or op.get('release',0)%data['delta']):
@@ -51,6 +52,21 @@ def validate_problem(data):
             seen.add(machine)
         if any(type(p) is not int or not 0<=p<len(ops) or p==op['id'] for p in op['predecessors']):
             raise ValueError('invalid predecessor')
+    for job in data['jobs']:
+        terminal=job.get('final_operation')
+        if type(terminal) is not int or not 0<=terminal<len(ops) or ops[terminal]['job']!=job['id']:
+            raise ValueError('job terminal must exist and belong to that job')
+        mandatory={o['id'] for o in ops if o['job']==job['id'] and not o.get('optional',False)}
+        if job.get('optional',False):
+            if mandatory:raise ValueError('optional job contains mandatory operations')
+            continue
+        if not mandatory or ops[terminal].get('optional',False):
+            raise ValueError('mandatory job requires a mandatory terminal')
+        ancestors=set();pending=[terminal]
+        while pending:
+            i=pending.pop()
+            if i not in ancestors:ancestors.add(i);pending.extend(ops[i]['predecessors'])
+        if not mandatory<=ancestors:raise ValueError('job terminal does not cover all mandatory operations')
 
 
 def initial_genome(data):

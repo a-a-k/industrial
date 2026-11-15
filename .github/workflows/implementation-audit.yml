@@ -1,0 +1,49 @@
+name: Audit binding boundaries, terminal guards and reduction measurements
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+env:
+  GH_REPO: ${{ github.repository }}
+  PYTHONPATH: .:vendor/simpat
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  GOMAXPROCS: '1'
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container:
+      image: python:3.11.16-bookworm@sha256:b99029c95d3d37fb1e4e76d287f7984373dca77c665885986e31b2c95260c13c
+      options: --cpus=1 --memory=4g --memory-swap=4g
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TSFG_SOURCE_SSH_KEY: ${{ secrets.TSFG_SOURCE_SSH_KEY }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: python scripts/budget.py
+      - uses: ./.github/actions/experiment-environment
+        with:
+          cp: 'true'
+          build: tsfg
+      - name: Reproduce archived defects and audit frozen numerical results
+        run: |
+          python -m compileall -q industrial planning tests
+          python -m industrial.implementation_audit
+      - name: Qualify corrected core and planner in their proper environments
+        run: |
+          python -m industrial.qualification
+          python -m unittest tests.test_planning -v > output/implementation-audit/planning-tests.txt 2>&1
+          "$CP_PYTHON" -m unittest tests.test_cpsat tests.test_rerank -v > output/implementation-audit/cp-tests.txt 2>&1
+          python -m industrial.implementation_audit finalize
+      - if: always()
+        run: |
+          mkdir -p output/implementation-audit/provenance
+          cp output/budget.json output/implementation-audit/provenance/ || true
+          cp build/*.json output/implementation-audit/provenance/ || true
+          if [ -d output/qualification ]; then cp -r output/qualification output/implementation-audit/; fi
+          python scripts/publish.py --name implementation-audit --path output/implementation-audit
