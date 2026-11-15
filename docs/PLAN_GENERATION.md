@@ -46,6 +46,11 @@ holdout for each regime. Reusing the already opened E1–E6 validation as a new
 independent test is prohibited. Compare external whole-batch completion against
 the original list_v1 plan and the nominal-objective plan from the corresponding
 seed. DES/DAG transitions remain independent; original S1 TSFG checks the fixed
+128-scenario subset. Success at d needs no execution beyond d. Report generated
+plan feasibility, per-regime success counts, paired changes, uncertainty, all
+costs, failures and unknown results separately. Confidence is per comparison;
+reusing scenarios across plans does not increase the number of replications.
+
 The additional `nominal_best_frozen` reference is defined before opening holdout
 results in `provenance/plan_reference.json`: the minimum nominal duration among
 all frozen selected plans and the original schedule, with SHA256 ties. It uses
@@ -55,10 +60,6 @@ incumbents are not the strongest nominal reference when a different frozen run
 already found a shorter schedule. Different search trajectories and consumed
 CPU prevent a claim of a pure causal objective effect at matched costs.
 
-128-scenario subset. Success at d needs no execution beyond d. Report generated
-plan feasibility, per-regime success counts, paired changes, uncertainty, all
-costs, failures and unknown results separately. Confidence is per comparison;
-reusing scenarios across plans does not increase the number of replications.
 
 This block measures the practical effect of choosing an objective for a known
 search method. It does not establish optimizer novelty or superiority over
