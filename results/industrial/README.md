@@ -14,3 +14,9 @@ The saved results retain these timeouts and the superseded preparation timeout.
 PASS does not imply forecast accuracy, superiority over frequency, a speedup,
 or completion of censored computations. Probability estimates describe the
 specified synthetic manufacturing process.
+
+The [extended repeats](https://github.com/a-a-k/industrial/actions/runs/43726894373)
+use a 1200-second limit for both methods in each of the two censored cases.
+Their [separate protocol](../../docs/TIMEOUT_EXTENSION.md) preserves the original
+300-second results. The workflow publishes its supplement automatically after
+both jobs, including any further timeouts or failures.
