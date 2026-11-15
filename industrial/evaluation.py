@@ -40,7 +40,7 @@ def seal(tags,revision_tag=None):
 def evaluate(registry):
     root=Path('output/evaluation');root.mkdir(parents=True,exist_ok=True)
     sealed,_=fetch(registry['seal'],'output/evaluation-seal');seal_record=read_json(sealed/'seal.json')
-    fits={};banks={};reanalyses={};all_banks=[]
+    fits={};fit_folders={};banks={};bank_folders={};reanalyses={};reanalysis_folders={};all_banks=[]
     for index,tag in enumerate(registry['fits']):
         folder,_=fetch(tag,f'output/evaluation-fit-{index}');report=read_json(folder/'fit.json')
         if report['role']!='calibration_forecast':raise ValueError('descriptive model used as forecast')
@@ -48,14 +48,17 @@ def evaluate(registry):
         if digest(canonical(report))!=seal_record['conditions'][condition]['report_sha256']:
             raise ValueError('forecast changed after sealing')
         fits[condition]=report
+        fit_folders[condition]=folder
     for index,tag in enumerate(registry['banks']):
         folder,_=fetch(tag,f'output/evaluation-bank-{index}');report=read_json(folder/'bank.json')
         ledger=read_json(folder/'product-ledger.json.gz');data=read_json(folder/'dataset.json')
         banks[(report['condition'],report['split'])]=(report,ledger,data);all_banks.append(dict(release=tag,**report))
+        bank_folders[(report['condition'],report['split'])]=folder
     for index,tag in enumerate(registry.get('reanalyses',[])):
         folder,_=fetch(tag,f'output/evaluation-reanalysis-{index}');report=read_json(folder/'fit.json')
         if report['role']!='validation_descriptive_reanalysis':raise ValueError('wrong descriptive analysis role')
         reanalyses[report['condition']]=report
+        reanalysis_folders[report['condition']]=folder
     rows=[];calibration_checks=[];unavailable=[]
     for condition in CONDITIONS:
         if condition not in fits or (condition,'calibration') not in banks or (condition,'validation') not in banks:
@@ -107,14 +110,23 @@ def evaluate(registry):
                         rows.append(dict(base,status='OK',**metrics,calibration_success_frequency=source_frequency,
                             calibration_frequency_metrics=baseline,
                             calibration_frequency_role='external comparator; not an identifier input'))
+    from .outcome_checks import check
+    external_checks=[]
+    for condition in CONDITIONS:
+        for split,analyses,folders in (('calibration',fits,fit_folders),('validation',reanalyses,reanalysis_folders)):
+            if condition in analyses and (condition,split) in bank_folders:
+                checked=check(bank_folders[(condition,split)],folders[condition],analyses[condition])
+                write_json(root/f'external-{condition}-{split}.json',checked);external_checks.append(checked)
+    external_valid=len(external_checks)==40 and all(c['status']=='PASS' for c in external_checks)
     required_banks=len(all_banks)==40 and all(r['status']=='COMPLETE' for r in all_banks)
     required_fits=len(fits)==20 and all(r['status']=='PASS' for r in fits.values())
     required_reanalysis=len(reanalyses)==20 and all(r['status']=='PASS' for r in reanalyses.values())
     valid_checks=len(calibration_checks)==60 and all(r['status']=='PASS' for r in calibration_checks)
     complete_rows=len(rows)==900 and all(r['status']=='OK' for r in rows)
-    status='PASS' if required_banks and required_fits and required_reanalysis and valid_checks and complete_rows and not unavailable else 'PARTIAL'
+    status='PASS' if required_banks and required_fits and required_reanalysis and valid_checks and complete_rows and external_valid and not unavailable else 'PARTIAL'
     report=dict(status=status,seal=registry['seal'],forecasts=rows,calibration_checks=calibration_checks,
         banks=all_banks,fit_statuses={k:v['status'] for k,v in fits.items()},
+        external_event_checks=external_checks,
         validation_reanalysis_statuses={k:v['status'] for k,v in reanalyses.items()},unavailable=unavailable,
         completed_forecast_rows=sum(r['status']=='OK' for r in rows),
         required_forecast_rows=10*3*5*2*3,

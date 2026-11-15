@@ -114,6 +114,9 @@ def run(registry):
         checks=e['calibration_checks']
         lines += [f"Точное совпадение полных доступных оценок E/R с независимой калибровочной частотой: "
                   f"{sum(c['status']=='PASS' for c in checks)} из 60 проверок. Строк проверки прогноза: {e['completed_forecast_rows']} из 900.",
+            f"По каждой попытке выполнено сопоставление внешнего результата с границами E/R: "
+            f"{sum(c['status']=='PASS' for c in e['external_event_checks'])} из 40 банков. "
+            'Повторные сроки, маски и цели в этих проверках не увеличивают статистическую выборку.',
             '', '| Экземпляр | Закон проверки | Модель | Прогноз E | Частота проверки | Знаковая ошибка |', '|---|---|---|---:|---:|---:|']
         for row in e['forecasts']:
             if row['status']=='OK' and row['deadline_label']=='110' and row['mode']=='available' and row['target']=='execution':
