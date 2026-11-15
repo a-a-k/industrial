@@ -16,6 +16,9 @@
     43701390065
   ],
   "final_report_release": null,
+  "plan_generation_run": 43703587587,
+  "plan_validation_run": null,
+  "plan_report_release": null,
   "monetary_budget": 0,
   "operational_runner_hour_limit": 72
 }
