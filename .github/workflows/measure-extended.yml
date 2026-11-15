@@ -1,0 +1,82 @@
+name: Extended repeats of timed-out cost cases
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: industrial-extended-costs
+  cancel-in-progress: false
+env:
+  GH_REPO: ${{ github.repository }}
+  PYTHONPATH: .:vendor/simpat
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+jobs:
+  paired:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 270
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        case:
+          - 'Mk10-F2:mcar30:100000:R:full-projection'
+          - 'Mk10-F2:mcar30:100000:panel:full-combination'
+    container:
+      image: python:3.11.16-bookworm@sha256:b99029c95d3d37fb1e4e76d287f7984373dca77c665885986e31b2c95260c13c
+      options: --cpus=1 --memory=4g --memory-swap=4g
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CASE: ${{ matrix.case }}
+      PREPARATION_QUALIFICATION: preparation-revision-43713071637-1
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: python scripts/budget.py
+      - run: apt-get update -qq && apt-get install -y --no-install-recommends gh
+      - name: Install unchanged scientific environment
+        run: |
+          gh release download industrial-environment-v1 --pattern environment.tar.gz --dir output
+          tar -xzf output/environment.tar.gz -C output
+          cmp requirements.lock output/environment/requirements.lock
+          python -m pip install --no-index --find-links output/environment/wheels --require-hashes -r requirements.lock
+      - name: Verify byte-identical input and repeat both methods with 1200 seconds
+        run: |
+          python -m compileall -q industrial/measurement.py industrial/extended_report.py scripts/budget.py
+          python -m industrial.measurement paired --extended --case "$CASE" --observations calibration-observations-Mk10-F2-43690938905-1 --fit fit-Mk10-F2-43690938905-1-43694563203-1
+      - name: Preserve all repeats and failures
+        if: always()
+        run: |
+          mkdir -p output/measurement/provenance
+          cp output/budget.json output/measurement/provenance/ || true
+          cp provenance/timeout_extension.json output/measurement/provenance/
+          python -c 'import sys;from pathlib import Path;from industrial.common import write_json;write_json("output/measurement/provenance/environment.json",dict(python=sys.version,requirements_sha256=__import__("hashlib").sha256(Path("requirements.lock").read_bytes()).hexdigest(),cpuinfo=Path("/proc/cpuinfo").read_text(),cgroup={p:Path("/sys/fs/cgroup",p).read_text() for p in ("memory.max","cpu.max","cpuset.cpus.effective") if Path("/sys/fs/cgroup",p).exists()}))'
+          python scripts/publish.py --name "measurement-extended-$(echo "$CASE" | tr ':' '-')" --path output/measurement
+  report:
+    needs: paired
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container:
+      image: python:3.11.16-bookworm@sha256:b99029c95d3d37fb1e4e76d287f7984373dca77c665885986e31b2c95260c13c
+      options: --cpus=1 --memory=4g --memory-swap=4g
+    env:
+      GH_TOKEN: ${{ github.token }}
+      FINAL_REPORT: '1'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: python scripts/budget.py
+      - run: apt-get update -qq && apt-get install -y --no-install-recommends gh
+      - name: Summarize both limits with all original failures retained
+        run: python -m industrial.extended_report
+      - name: Publish the timeout supplement
+        if: always()
+        run: |
+          mkdir -p output/timeout-supplement/provenance
+          cp output/budget.json output/timeout-supplement/provenance/ || true
+          python scripts/publish.py --name timeout-supplement --path output/timeout-supplement

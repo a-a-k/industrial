@@ -1,0 +1,23 @@
+{
+  "version": "industrial-cost-timeout-extension-v1",
+  "original_report": "final-report-43722003191-1",
+  "process_timeout_s": 1200,
+  "method_budget_s": 14700,
+  "job_timeout_minutes": 270,
+  "preparation_qualification": "preparation-revision-43713071637-1",
+  "original_protocol_status_unchanged": true,
+  "cases": [
+    {
+      "id": "Mk10-F2:mcar30:100000:R:full-projection",
+      "observations": "calibration-observations-Mk10-F2-43690938905-1",
+      "fit": "fit-Mk10-F2-43690938905-1-43694563203-1",
+      "parent": "measurement-Mk10-F2-mcar30-100000-R-full-projection-43709223426-1"
+    },
+    {
+      "id": "Mk10-F2:mcar30:100000:panel:full-combination",
+      "observations": "calibration-observations-Mk10-F2-43690938905-1",
+      "fit": "fit-Mk10-F2-43690938905-1-43694563203-1",
+      "parent": "measurement-Mk10-F2-mcar30-100000-panel-full-combination-43709223426-1"
+    }
+  ]
+}

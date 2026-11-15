@@ -104,7 +104,7 @@ def run_method(folder,method,query,deadline,result_path,saved=None):
     write_json(result_path,report)
 
 
-def paired(case,observation_tag,fit_tag):
+def paired(case,observation_tag,fit_tag,extended=False):
     from .releases import fetch
     from .small_cost import CASE,paired as small_paired
     if case==CASE:return small_paired()
@@ -118,6 +118,24 @@ def paired(case,observation_tag,fit_tag):
         raise ValueError('undeclared measurement pair or load')
     if len(methods)!=2:raise ValueError('cost case must be paired')
     root=Path('output/measurement');root.mkdir(parents=True,exist_ok=True);setup=time.perf_counter()
+    timeout_s=300;method_budget_s=80*60;extension=None;parent_root=None
+    if extended:
+        profile=read_json('provenance/timeout_extension.json')
+        matched=[r for r in profile['cases'] if r['id']==case]
+        if len(matched)!=1:raise ValueError('undeclared timeout extension')
+        source=matched[0]
+        if source['observations']!=observation_tag or source['fit']!=fit_tag:
+            raise ValueError('extended case changes frozen inputs')
+        parent_root,receipt=fetch(source['parent'],'output/extended-parent')
+        parent=read_json(parent_root/'measurement.json')
+        if (parent['case']!=case or parent['status']!='PARTIAL' or len(parent['attempts'])!=12
+                or any(r['status']!='TIMEOUT' for r in parent['attempts'])
+                or parent['observation_release']!=observation_tag or parent['fit_release']!=fit_tag):
+            raise ValueError('extension requires the declared fully censored parent')
+        timeout_s=profile['process_timeout_s'];method_budget_s=profile['method_budget_s']
+        extension=dict(version=profile['version'],parent_release=source['parent'],
+            parent_archive_sha256=receipt['archive_sha256'],parent_process_timeout_s=300,
+            process_timeout_s=timeout_s,job_timeout_minutes=profile['job_timeout_minutes'])
     observations,_=fetch(observation_tag,'output/input-cost-observations');index=read_json(observations/'index.json')
     if index['condition']!=condition or index['split']!='calibration':raise ValueError('cost input condition')
     entries=[x for x in index['cases'] if x['deadline_label']=='110' and x['mode']==mode]
@@ -152,19 +170,30 @@ def paired(case,observation_tag,fit_tag):
                 or proof['method_ast_sha256']!=digest(method_ast.encode())):
             raise ValueError('revised preparation does not match its qualified source')
         prep=execute([sys.executable,'-m','industrial.measurement','prepare',str(observations/entry['file']),
-            str(root/'load'),'--count',str(count)])
+            str(root/'load'),'--count',str(count)],timeout=timeout_s)
+    if extended and prep['status']=='OK':
+        expected=read_json(parent_root/'load/log-receipt.json');log=root/'load/log.jsonl.gz'
+        actual=dict(bytes=log.stat().st_size,sha256=digest(log.read_bytes()))
+        if (actual['bytes']!=expected['bytes'] or actual['sha256']!=expected['sha256']
+                or (root/'load/contract.json').read_bytes()!=(parent_root/'load/contract.json').read_bytes()
+                or read_json(root/'load/load.json')['parent_packet_sha256']!=parent['load']['parent_packet_sha256']):
+            raise ValueError('extended replay differs from the censored parent')
+        extension['exact_replay']=actual
+        write_json(root/'extension.json',extension)
     setup_s=time.perf_counter()-setup;attempts=[];deadline=entry['deadline'];start=time.monotonic()
     if prep['status'] in ('OK','SAVED_MODEL'):
         for repeat in range(6):
             order=list(methods);rng('cost-order',case,repeat).shuffle(order)
             for method in order:
-                if time.monotonic()-start>80*60:
+                if time.monotonic()-start>method_budget_s:
                     attempts.append(dict(method=method,repeat=repeat,warmup=repeat==0,status='JOB_BUDGET_UNRUN'));continue
                 out=root/f'{repeat}-{method}.json'
                 command=[sys.executable,'-m','industrial.measurement','method',str(root/'load'),str(out),
                     '--method',method,'--query',query,'--deadline',str(deadline)]
                 if saved is not None:command+=['--saved',str(saved)]
-                process=execute(command)
+                if extended:print(json.dumps(dict(stage='method_start',method=method,repeat=repeat,timeout_s=timeout_s)),flush=True)
+                process=execute(command,timeout=timeout_s)
+                if extended:print(json.dumps(dict(stage='method_complete',method=method,repeat=repeat,**process)),flush=True)
                 row=dict(method=method,repeat=repeat,warmup=repeat==0,process=process,status=process['status'])
                 if process['status']=='OK':row['measurement']=read_json(out)
                 attempts.append(row)
@@ -193,6 +222,7 @@ def paired(case,observation_tag,fit_tag):
         analysis_source_sha256=digest(Path('industrial/solver.py').read_bytes()),
         observation_release=observation_tag,fit_release=fit_tag,preparation=prep,shared_setup_s=setup_s,
         preparation_qualification=os.environ.get('PREPARATION_QUALIFICATION'),
+        process_timeout_s=timeout_s,method_budget_s=method_budget_s,timeout_extension=extension,
         load=read_json(root/'load/load.json') if (root/'load/load.json').exists() else None,
         attempts=attempts,summary=summary,paired_complete=matched,mismatched_repeats=mismatches,
         median_paired_ratio=statistics.median(r['ratio_first_to_second'] for r in matched) if len(matched)==5 else None,
@@ -213,10 +243,11 @@ def main():
     s=sub.add_parser('method');s.add_argument('folder');s.add_argument('output');s.add_argument('--method',required=True)
     s.add_argument('--query',required=True);s.add_argument('--deadline',type=int,required=True);s.add_argument('--saved')
     s=sub.add_parser('paired');s.add_argument('--case',required=True);s.add_argument('--observations',required=True);s.add_argument('--fit',default='')
+    s.add_argument('--extended',action='store_true')
     a=p.parse_args()
     if a.task=='prepare':prepare(a.packet,a.folder,a.count)
     elif a.task=='method':run_method(a.folder,a.method,a.query,a.deadline,a.output,a.saved)
-    else:paired(a.case,a.observations,a.fit)
+    else:paired(a.case,a.observations,a.fit,a.extended)
 
 
 if __name__=='__main__':main()

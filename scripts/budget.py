@@ -26,8 +26,9 @@ while True:
                 elapsed=0.
                 if job['status']=='completed' and job.get('started_at') and job.get('completed_at'):
                     elapsed=max(0.,(when(job['completed_at'])-when(job['started_at'])).total_seconds());completed+=elapsed
-                elif job['status']!='completed':reserved+=90*60
-                census.append(dict(id=job['id'],run=run['id'],status=job['status'],elapsed_s=elapsed))
+                job_limit_s=270*60 if run.get('path','').split('@')[0].endswith('/measure-extended.yml') and job['name']!='report' else 90*60
+                if job['status']!='completed':reserved+=job_limit_s
+                census.append(dict(id=job['id'],run=run['id'],status=job['status'],elapsed_s=elapsed,job_limit_s=job_limit_s))
             if len(jobs)<100:break
             jp+=1
     if len(runs)<100:break
