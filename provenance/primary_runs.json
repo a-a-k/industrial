@@ -10,9 +10,11 @@
   "prediction_seal_release": "seal-43697965698-1",
   "analysis_version": "industrial-cudd-cofactor-witness-v2",
   "validation_acquisition_run": 43699205407,
-  "validation_descriptive_identification_run": null,
+  "validation_descriptive_identification_run": 43700243231,
   "evaluation_release": null,
-  "measurement_runs": [],
+  "measurement_runs": [
+    43700293518
+  ],
   "final_report_release": null,
   "monetary_budget": 0,
   "operational_runner_hour_limit": 72
