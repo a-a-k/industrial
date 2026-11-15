@@ -115,10 +115,13 @@ type opPolicy struct {
     stepEnd, stopped int64
     steps, updates, completed int
     diagnostic bool
+    riskOnly bool
+    riskDeadline int64
     ext *opExtension
     pbr *pbrExtension
 }
 var opAllDone = errors.New("operation profile completed")
+var opRiskImpossible = errors.New("mandatory work cannot meet deadline")
 
 func opExact(x float64) int64 {
     n := int64(math.Round(x))
@@ -191,6 +194,15 @@ func (p *opPolicy) EndStep(_,_,_ float64) error {
     p.completed += len(completed)
     p.stopped = p.stepEnd
     if p.completed == len(p.data.Operations) { return opAllDone }
+    // Scalar task only: all operations are mandatory, and rate is at most one.
+    // No C=false is asserted when the deadline is already impossible.
+    if p.riskOnly {
+        for m,queue := range p.data.Queues {
+            if p.head[m]<len(queue) && p.left[queue[p.head[m]]] > p.riskDeadline-p.stepEnd {
+                return opRiskImpossible
+            }
+        }
+    }
     return nil
 }
 
@@ -203,7 +215,8 @@ func opSolve(data opDataset, sc opScenario, horizon, delta int64, diagnostic boo
         multiplierRefs:make([][]float64,m),completionScratch:make([]int,0,m),
         head:make([]int,m),current:make([]int,m),pending:make([]int,n),successors:make([][]int,n),
         start:make([]int64,n),finish:make([]int64,n),left:make([]int64,n),injection:make([]int64,m),
-        down:make([][][2]int64,m),cursor:make([]int,m),diagnostic:diagnostic}
+        down:make([][][2]int64,m),cursor:make([]int,m),diagnostic:diagnostic,
+        riskOnly:os.Getenv("TSFG_OUTPUT_PROFILE")=="RISK-ONLY",riskDeadline:horizon}
     for i,o := range data.Operations {
         if o.ID != i || o.Machine < 0 || o.Machine >= m || o.Work <= 0 || o.Planned < 0 || o.Release < 0 {
             return nil,errors.New("Invalid operation")
@@ -280,12 +293,17 @@ func opSolve(data opDataset, sc opScenario, horizon, delta int64, diagnostic boo
     if horizon>0 {
         experiment := experimentFile{HorizonS:float64(horizon),DtS:float64(delta),MeasurementWindows:[]float64{float64(horizon)}}
         _,err := runGraphLocalTemporalCapacityModelWithRuntimeAndSink(facility,experiment,resources,arithmetic{},runtime,"",p)
-        if err != nil && !errors.Is(err,opAllDone) && !errors.Is(err,opDeadlocked) { return nil,err }
+        if err != nil && !errors.Is(err,opAllDone) && !errors.Is(err,opDeadlocked) && !errors.Is(err,opRiskImpossible) { return nil,err }
         if errors.Is(err,opAllDone) && !diagnostic {p.stopped=horizon}
         if err == nil { p.boundary(horizon) }
     }
     upstreamSeconds:=time.Since(upstreamStarted).Seconds()
     resultStarted:=time.Now()
+    if p.riskOnly {
+        var finished any
+        if p.completed==n {finished=p.stepEnd}
+        return map[string]any{"finished_at":finished},nil
+    }
     if os.Getenv("TSFG_OUTPUT_PROFILE")=="AGG-MISSION" {
         row:=opObserve(p,horizon)
         if diagnostic {row["mode"]="DIAGNOSTIC"}
@@ -345,6 +363,10 @@ func opCommand() error {
     t1:=time.Now()
     output,err:=os.Create(os.Args[4]);if err!=nil{return err};defer output.Close()
     encoder:=json.NewEncoder(output)
+    riskOnly:=os.Getenv("TSFG_OUTPUT_PROFILE")=="RISK-ONLY"
+    riskTrace:=os.Getenv("RISK_TRACE")=="1"
+    riskTimes:=make([]any,0)
+    riskFinished:=0
     prefixes:=map[string]float64{}
     count:=0
     for _,sc:=range scenarios {
@@ -355,15 +377,24 @@ func opCommand() error {
         }
         if err!=nil{return err}
         row["kernel_elapsed_s"]=time.Since(begin).Seconds()
-        if err=encoder.Encode(row);err!=nil{return err}
+        if riskOnly {
+            if row["finished_at"]!=nil {riskFinished++}
+            if riskTrace {riskTimes=append(riskTimes,row["finished_at"])}
+        } else {if err=encoder.Encode(row);err!=nil{return err}}
         count++
         if count==1 || count==10 || count==100 || count==1000 {prefixes[strconv.Itoa(count)]=time.Since(t1).Seconds()}
+        if riskOnly {continue}
         progress:=map[string]any{"scenarios_completed":count,"T_import_s":t1.Sub(t0).Seconds(),
             "T_build_s":0,"T_batch_elapsed_s":time.Since(t1).Seconds(),"prefix_batch_s":prefixes}
         encoded,e:=json.Marshal(progress);if e!=nil{return e}
         path:=os.Args[4]+".progress.json"
         if e=os.WriteFile(path+".tmp",encoded,0600);e!=nil{return e}
         if e=os.Rename(path+".tmp",path);e!=nil{return e}
+    }
+    if riskOnly {
+        answer:=map[string]any{"sample_count":count,"finished_count":riskFinished}
+        if riskTrace {answer["finished_at"]=riskTimes}
+        if err=encoder.Encode(answer);err!=nil{return err}
     }
     if err=output.Close();err!=nil{return err}
     batch:=time.Since(t1).Seconds()
@@ -375,8 +406,9 @@ func opCommand() error {
         "prefix_batch_s":prefixes,"output_profile":"SCHEDULE",
         "construction_policy":"original graph and policy rebuilt per scenario; included in batch"}
     if os.Args[1]=="tsfg-agg" || os.Getenv("TSFG_OUTPUT_PROFILE")=="AGG-MISSION" {meta["output_profile"]="AGG-MISSION"}
+    if riskOnly {meta["output_profile"]="RISK-ONLY"}
     meta["engine"]=os.Args[1]
-    if data.Semantics=="PBR-EXACT-v2.2" {peak,e:=pbrVmHWM();if e!=nil{return e};meta["VmHWM_bytes"]=peak;meta["memory_counter"]="/proc/self/status VmHWM after exec"}
+    if data.Semantics=="PBR-EXACT-v2.2" || riskOnly {peak,e:=pbrVmHWM();if e!=nil{return e};meta["VmHWM_bytes"]=peak;meta["memory_counter"]="/proc/self/status VmHWM after exec"}
     encoded,err:=json.MarshalIndent(meta,"","  ");if err!=nil{return err}
     if err=os.WriteFile(os.Args[4]+".meta.json",encoded,0600);err!=nil{return err}
     return nil

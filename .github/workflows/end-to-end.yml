@@ -1,0 +1,116 @@
+name: Complete input-to-risk cost comparison
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: industrial-end-to-end
+  cancel-in-progress: false
+env:
+  GH_REPO: ${{ github.repository }}
+  PYTHONPATH: .:vendor/simpat
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  GOMAXPROCS: '1'
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container:
+      image: python:3.11.16-bookworm@sha256:b99029c95d3d37fb1e4e76d287f7984373dca77c665885986e31b2c95260c13c
+      options: --cpus=1 --memory=4g --memory-swap=4g
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TSFG_SOURCE_SSH_KEY: ${{ secrets.TSFG_SOURCE_SSH_KEY }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: python scripts/budget.py
+      - run: python -c "import pathlib,time;pathlib.Path('output/bootstrap-start.txt').write_text(str(time.time()))"
+      - uses: ./.github/actions/experiment-environment
+      - run: python -m industrial.end_to_end bootstrap-stop
+      - name: S1 Go toolchain
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.0'
+          cache: false
+      - name: Build independent scalar baseline and unchanged S1
+        run: python -m industrial.end_to_end build
+      - name: Qualify production semantics and scalar observers before timing
+        run: |
+          python -m compileall -q industrial planning tests
+          python -m industrial.qualification
+          python -m industrial.end_to_end qualify
+      - if: always()
+        run: |
+          mkdir -p output/end-to-end/provenance
+          cp output/budget.json output/end-to-end/provenance/ || true
+          cp build/*.json output/end-to-end/provenance/ || true
+          if [ -d output/qualification ]; then cp -r output/qualification output/end-to-end/core-qualification; fi
+          python scripts/publish.py --name end-to-end-qualification --path output/end-to-end
+  measure:
+    needs: qualify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        instance: [Mk01, Mk05, Mk10]
+        runner: [1, 2, 3]
+    container:
+      image: python:3.11.16-bookworm@sha256:b99029c95d3d37fb1e4e76d287f7984373dca77c665885986e31b2c95260c13c
+      options: --cpus=1 --memory=4g --memory-swap=4g
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TSFG_SOURCE_SSH_KEY: ${{ secrets.TSFG_SOURCE_SSH_KEY }}
+      INSTANCE: ${{ matrix.instance }}
+      RUNNER_REPETITION: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: python scripts/budget.py
+      - run: python -c "import pathlib,time;pathlib.Path('output/bootstrap-start.txt').write_text(str(time.time()))"
+      - uses: ./.github/actions/experiment-environment
+      - run: python -m industrial.end_to_end bootstrap-stop
+      - name: S1 Go toolchain
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.0'
+          cache: false
+      - run: python -m industrial.end_to_end build
+      - name: Verify the full common bank and time complete fresh processes
+        run: python -m industrial.end_to_end measure "$INSTANCE" "$RUNNER_REPETITION"
+      - if: always()
+        run: |
+          mkdir -p output/end-to-end/provenance
+          cp output/budget.json output/end-to-end/provenance/ || true
+          cp build/*.json output/end-to-end/provenance/ || true
+          python scripts/publish.py --name "end-to-end-$INSTANCE-$RUNNER_REPETITION" --path output/end-to-end
+  report:
+    needs: [qualify, measure]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container:
+      image: python:3.11.16-bookworm@sha256:b99029c95d3d37fb1e4e76d287f7984373dca77c665885986e31b2c95260c13c
+      options: --cpus=1 --memory=4g --memory-swap=4g
+    env:
+      GH_TOKEN: ${{ github.token }}
+      FINAL_REPORT: '1'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: python scripts/budget.py
+      - uses: ./.github/actions/experiment-environment
+      - run: python -m industrial.end_to_end report
+      - if: always()
+        run: |
+          mkdir -p output/end-to-end/report/provenance
+          cp output/budget.json output/end-to-end/report/provenance/ || true
+          python scripts/publish.py --name end-to-end-report --path output/end-to-end/report

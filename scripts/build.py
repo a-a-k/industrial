@@ -9,13 +9,14 @@ import subprocess
 if os.environ.get('GITHUB_ACTIONS') != 'true': raise SystemExit('Actions only')
 out = Path('build'); out.mkdir(exist_ok=True)
 flags = ['-std=c++20','-O3','-DNDEBUG','-Wall','-Wextra','-Werror','-Ivendor']
-subprocess.run(['g++',*flags,'engines/main.cpp','engines/tsfg_op/grid.cpp',
-    'engines/des_ref/des.cpp','engines/dag_ref/dag.cpp','-o',str(out/'simulator')],check=True)
-(out/'environment.json').write_text(json.dumps(dict(
-    compiler=subprocess.check_output(['g++','--version'],text=True),flags=flags,
-    simulator_sha256=hashlib.sha256((out/'simulator').read_bytes()).hexdigest(),
-    run_id=os.environ['GITHUB_RUN_ID'],commit=os.environ['GITHUB_SHA'],
-    cpuinfo=Path('/proc/cpuinfo').read_text()),indent=2))
+if os.environ.get('S1_ONLY')!='1':
+    subprocess.run(['g++',*flags,'engines/main.cpp','engines/tsfg_op/grid.cpp',
+        'engines/des_ref/des.cpp','engines/dag_ref/dag.cpp','-o',str(out/'simulator')],check=True)
+    (out/'environment.json').write_text(json.dumps(dict(
+        compiler=subprocess.check_output(['g++','--version'],text=True),flags=flags,
+        simulator_sha256=hashlib.sha256((out/'simulator').read_bytes()).hexdigest(),
+        run_id=os.environ['GITHUB_RUN_ID'],commit=os.environ['GITHUB_SHA'],
+        cpuinfo=Path('/proc/cpuinfo').read_text()),indent=2))
 if os.environ.get('PUBLIC_ONLY')=='1':raise SystemExit(0)
 source = Path('.private/upstream'); engine=source/'engine'
 expected='8510baf28673758f1e437d2dbc5a51ead9843a3b'
