@@ -32,6 +32,8 @@
   "cpsat_validation_report_release": "cpsat-report-43719097005-1",
   "cpsat_nominal_interface_verification_run": 43720472023,
   "cpsat_all_objectives_interface_verification_run": 43720771163,
+  "planner_comparison_run": 43730898043,
+  "planner_comparison_verification_release": "planner-verification-43730898043-1",
   "monetary_budget": 0,
   "operational_runner_hour_limit": 72
 }

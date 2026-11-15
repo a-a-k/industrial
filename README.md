@@ -6,6 +6,13 @@ transfer across Brandimarte Mk01–Mk10, and complete computational costs.
 
 [Protocol](docs/PROTOCOL.md) · [Plan generation](docs/PLAN_GENERATION.md) · [Source provenance](provenance/sources.json)
 
+The [three-method comparison protocol](docs/PLANNER_COMPARISON.md) defines a
+separate equal-budget test of CP-SAT, CP incumbent ranking by direct simulation,
+and CP-seeded local probability search. Its
+[Actions campaign](https://github.com/a-a-k/industrial/actions/runs/43730898043)
+freezes every selected plan before opening a fresh holdout. Earlier CP results
+do not establish a benefit from the additional local search.
+
 The current strong planning results and actual schedules are available in the
 [CP-SAT report](results/cpsat/REPORT_RU.md) and
 [schedule files](results/cpsat/README.md). On Mk10, the nominal duration is
