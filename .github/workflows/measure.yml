@@ -9,7 +9,7 @@ permissions:
   contents: write
   actions: read
 concurrency:
-  group: industrial-campaign
+  group: industrial-cost-campaign
   cancel-in-progress: false
 env:
   GH_REPO: ${{ github.repository }}
@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 90
     strategy:
       fail-fast: false
-      max-parallel: 4
+      max-parallel: 3
       matrix:
         case: ${{ fromJSON(inputs.cases) }}
     container:
