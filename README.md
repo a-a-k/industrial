@@ -21,9 +21,8 @@ The original S1 TSFG participant uses an unchanged private upstream kernel plus
 the public operation adapter. Its source and binary are not distributed. DES and
 DAG are independent open implementations and remain independently reproducible.
 
-The calibration models and independent production bank have been executed.
-Descriptive validation analysis, external comparisons and final cost acceptance
-are in progress. Primary releases and runs are listed in
+The calibration models, independent production bank and external comparisons
+have been executed. Final cost acceptance is in progress. Primary releases and runs are listed in
 [primary_runs.json](provenance/primary_runs.json); workflow success alone does not
 establish complete experimental acceptance.
 
@@ -34,3 +33,9 @@ separate from the already opened E1–E6 validation bank.
 
 [Frozen generated schedules](results/plans/README.md) provide the actual CSV and
 JSON outputs, their units and links to independent validation evidence.
+
+The completed independent plan-generation results are available in the
+[Russian report](results/plan-generation/REPORT_RU.md),
+[main comparisons](results/plan-generation/main-comparisons.json) and
+[complete plan table](results/plan-generation/plans.csv). The report includes
+simultaneous confidence bounds, all search costs and the limits of the claims.
