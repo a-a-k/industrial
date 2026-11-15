@@ -101,3 +101,20 @@ Timeouts retain their 300-second censoring threshold. Ratios require five
 correctly completed matched repeats. Missing calculations and unrun obligations
 remain visible; a pilot or a faster direct method cannot satisfy an uncompleted
 full-model obligation.
+
+## Exact replay-preparation revision
+
+The cached `canonical-template-v1` encoder serializes each original attempt once
+and replaces only collision-checked JSON identifier tokens. It preserves the
+complete deterministic gzip byte stream. `preparation-revision-43713071637-1`
+checks old SHA-256 receipts at 1000/10000/100000 loads, placeholder collisions,
+the unchanged timed-method AST and imports, and the unchanged qualified modules.
+Pass this release as `preparation_qualification` to revised measurement jobs.
+Their preparation version and qualification are retained with the results.
+
+Only a preparation timeout before any method started can be replaced by a
+qualified retry. Keep its original archive and elapsed cost. Completed method
+measurements are never replaced by this preparation revision. The 300-second
+limits remain unchanged. One single-retry job can use the fourth runner while
+three ordinary paired jobs continue; control/report work shares that single
+slot. Do not overlap additional jobs beyond the campaign's four-runner limit.
