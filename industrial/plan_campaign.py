@@ -248,8 +248,15 @@ def report(registry_path):
                         probability=value['probability'],ci95_lower=ci[0],ci95_upper=ci[1]))
         comparisons.extend(dict(instance=record['instance'],**row) for row in record['comparisons'])
     spec=read_json('provenance/plan_generation.json')
+    verification=None
+    if registry.get('verification'):
+        checked,_=fetch(registry['verification'],'output/plan-interface-verification')
+        verification=read_json(checked/'verification.json')
+        if (verification['status']!='PASS' or verification['source_sha256']!=digest(Path('planning/generator.py').read_bytes())):
+            missing.append(dict(release=registry['verification'],error='raw-condition interface verification mismatch'))
+        write_json(root/'interface-verification.json',verification)
     complete=(len(records)==len(spec['instances']) and {r['instance'] for r in records}==set(spec['instances'])
-        and all(r['status']=='PASS' for r in records) and not missing)
+        and all(r['status']=='PASS' for r in records) and verification is not None and not missing)
     result=dict(status='COMPLETE' if complete else 'PARTIAL',registry=registry,missing=missing,
         instances=[r['instance'] for r in records],evaluated_distinct_plans=sum(len(r['plans']) for r in records),
         per_regime_holdout=spec['validation_replications_per_law'],global_optimality_claimed=False,
