@@ -6,6 +6,13 @@ transfer across Brandimarte Mk01–Mk10, and complete computational costs.
 
 [Protocol](docs/PROTOCOL.md) · [Plan generation](docs/PLAN_GENERATION.md) · [Source provenance](provenance/sources.json)
 
+The current strong planning results and actual schedules are available in the
+[CP-SAT report](results/cpsat/REPORT_RU.md) and
+[schedule files](results/cpsat/README.md). On Mk10, the nominal duration is
+375 → 221; a fresh independent holdout gives deadline success 19.04% → 84.57%
+under F1 and 48.24% → 92.68% under F2, with the original deadline and machines.
+This is a feasible plan from a standard solver, without a proof of optimality.
+
 The experimental unit is one execution of a complete fixed batch. Production
 observations and independent finished-product accounting are separate inputs.
 Unknown outcomes at the observation horizon, missed production deadlines, and
@@ -28,13 +35,16 @@ establish complete experimental acceptance.
 
 The separate plan generator searches assignments and operation order under
 selectable nominal-duration, deadline-success, worst-regime and Pareto objectives.
-It reports the best schedules found under the stated budget. Its new holdout is
+It reports the best schedules found under the stated budget. The current
+`industrial.plan` interface uses CP-SAT for the nominal objective and evaluates
+original and CP-generated seeds under each requested probability objective
+before further search. Its new holdout is
 separate from the already opened E1–E6 validation bank.
 
 [Frozen generated schedules](results/plans/README.md) provide the actual CSV and
 JSON outputs, their units and links to independent validation evidence.
 
-The completed independent plan-generation results are available in the
+The earlier v1 independent plan-generation results are available in the
 [Russian report](results/plan-generation/REPORT_RU.md),
 [main comparisons](results/plan-generation/main-comparisons.json) and
 [complete plan table](results/plan-generation/plans.csv). The report includes
