@@ -12,5 +12,12 @@
   "runner": "standard ubuntu-24.04",
   "cpus": 1,
   "memory_bytes": 4294967296,
-  "process_timeout_s": 300
+  "process_timeout_s": 300,
+  "small_model_control": {
+    "case": "E3-seven-all-fibers:available:2187:panel:full-oracle",
+    "source": "existing E3 seven-coordinate fixture; all 2187 partial categories, count one each",
+    "methods": ["full", "oracle"],
+    "targets": "thirteen scalar bounds; no joint images or witnesses for either method",
+    "input_freeze": "save model and SHA256 receipt before the warmup and all five measured pairs"
+  }
 }

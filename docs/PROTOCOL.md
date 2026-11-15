@@ -134,6 +134,13 @@ single-R query, full target panel, repeated saved-model analysis and certificate
 Use the specialized query_full_r for full-R. The combination baseline retains
 controls and the completion conjunction rather than all individual completions.
 Repeated-log sizes 1000/10000/100000 are computational loads, not larger samples.
+The independent small-model cost control uses the existing seven-coordinate E3
+fixture with all 2187 partial categories, each of weight one. Full CUDD and the
+independent exhaustive scalar evaluator produce the same thirteen scalar bounds;
+neither timed path computes joint images or witnesses. Freeze the saved model and
+its SHA256 before one warmup and five measured fresh processes per method. This
+control supplements the forty industrial cost cases and closes the original
+small-model timing obligation without adding production replications.
 
 Pair methods sequentially on the same standard Ubuntu runner, one CPU, 4 GiB.
 CPython 3.11.16 and the dd 0.6.0 cp311 CUDD wheel are pinned. Resolve/hash the full

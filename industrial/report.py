@@ -34,6 +34,7 @@ def run(registry):
                 for query,pairs in spec['pairs'].items():
                     for pair in pairs:required.append(f'{condition}:{mode}:{count}:{query}:{"-".join(pair)}')
             for pair in spec['saved_R_pairs']:required.append(f'{condition}:{mode}:512:saved_R:{"-".join(pair)}')
+    required.append(spec['small_model_control']['case'])
     by_case={m['case']:m for m in measures}
     final_solver=read_json('provenance/analysis_compatibility.json')['new_sha256']
     for m in measures:
@@ -61,7 +62,9 @@ def run(registry):
         measurement_processes=sum(len(m['attempts']) for m in measures),
         measurement_timeouts=sum(a['status']=='TIMEOUT' for m in measures for a in m['attempts']),
         measurement_failed=sum(a['status']=='FAILED' for m in measures for a in m['attempts']),
-        measurement_unrun=sum(a['status']=='JOB_BUDGET_UNRUN' for m in measures for a in m['attempts']))
+        measurement_unrun=sum(a['status']=='JOB_BUDGET_UNRUN' for m in measures for a in m['attempts']),
+        preparation_timeouts=sum(m['preparation']['status']=='TIMEOUT' for m in measures),
+        preparation_failed=sum(m['preparation']['status'] not in ('OK','SAVED_MODEL','TIMEOUT') for m in measures))
     elapsed=budget['completed_s']/3600
     result=dict(status=status,blocks=blocks,counters=counters,missing=missing,registry=registry,
         cost_cases_required=len(required),cost_cases_available=len(by_case),
@@ -77,7 +80,8 @@ def run(registry):
     raw=subprocess.check_output(['gh','api','--paginate',f'repos/{os.environ["GITHUB_REPOSITORY"]}/actions/runs?per_page=100',
         '--jq','.workflow_runs[] | {id,head_sha,status,conclusion,html_url,created_at,updated_at}'],text=True)
     (root/'workflow-history.jsonl').write_text(raw)
-    cost_fields=['case','status','method','required','completed','timeouts','median_wall_s','median_completed_only_diagnostic_s']
+    cost_fields=['case','status','method','required','completed','timeouts','completion_fraction',
+        'median_wall_s','median_completed_only_diagnostic_s','median_cpu_s','median_peak_rss_bytes','median_representation_bytes']
     with (root/'costs.csv').open('w',newline='') as stream:
         writer=csv.DictWriter(stream,fieldnames=cost_fields);writer.writeheader()
         for m in measures:
@@ -128,13 +132,20 @@ def run(registry):
         'Превосходство над калибровочной частотой не предполагается.', '', '## Вычислительные затраты','',
         f"Обязательных парных случаев: {len(required)}; получено {len(by_case)}; полностью завершено {result['cost_cases_complete']}. "
         f"Тайм-аутов: {counters['measurement_timeouts']}; ошибок процессов: {counters['measurement_failed']}; незапущенных повторов: {counters['measurement_unrun']}.",
+        f"Отдельно при подготовке нагрузки: тайм-аутов {counters['preparation_timeouts']}; ошибок {counters['preparation_failed']}.",
         'Каждая пара выполнена на одном runner, в контейнере с одним ядром и лимитом 4 GiB. Один прогрев и пять измеряемых свежих процессов на метод. '
         'Прогревы и подготовка сохранены отдельно; времена тайм-аутов цензурированы. '
         'Медианы отношений публикуются только при пяти корректных завершённых парах. Повторённые журналы — нагрузка, не новые производственные испытания.',
-        '', '| Случай | Статус | Медиана времени первого / второго |', '|---|---|---:|']
+        '', '| Случай | Статус | Метод | Время, с | CPU, с | RSS, MiB | Представление, байт | Завершено из 5 | Отношение первого / второго |',
+        '|---|---|---|---:|---:|---:|---:|---:|---:|']
+    def number(value,digits=4):return '—' if value is None else f'{value:.{digits}f}'
     for m in sorted(measures,key=lambda x:x['case']):
         ratio='—' if m['median_paired_ratio'] is None else f'{m["median_paired_ratio"]:.4f}'
-        lines.append(f"| {m['case']} | {m['status']} | {ratio} |")
+        for method,s in m['summary'].items():
+            rss=s.get('median_peak_rss_bytes')
+            lines.append(f"| {m['case']} | {m['status']} | {method} | {number(s['median_wall_s'])} | "
+                f"{number(s.get('median_cpu_s'))} | {number(None if rss is None else rss/1024**2,2)} | "
+                f"{number(s.get('median_representation_bytes'),0)} | {s['completed']} / {s['required']} | {ratio} |")
     lines += ['', '## Границы выводов и невыполненные обязательства','',
         'Проверяется идентификация по синтетическим производственным наблюдениям. Данные реального оборудования и экономический выбор резерва не исследовались. '
         'Перенос относится к процедуре, а не к численным параметрам между разными экземплярами. Mk08–Mk10 ранее использовались в отдельном TSFG исследовании.',

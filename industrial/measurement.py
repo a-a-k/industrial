@@ -94,6 +94,8 @@ def run_method(folder,method,query,deadline,result_path,saved=None):
 
 def paired(case,observation_tag,fit_tag):
     from .releases import fetch
+    from .small_cost import CASE,paired as small_paired
+    if case==CASE:return small_paired()
     condition,mode,load_text,query,pair=case.split(':');count=int(load_text);methods=pair.split('-')
     spec=read_json('provenance/measurements.json')
     if condition not in spec['conditions'] or mode not in spec['observation_modes']:
@@ -111,6 +113,20 @@ def paired(case,observation_tag,fit_tag):
     entry=entries[0];saved=None;prep=None
     if query=='saved_R':
         fitroot,_=fetch(fit_tag,'output/input-cost-fit');saved=fitroot/f'110-{mode}'
+        fitted=read_json(fitroot/'fit.json')
+        if (fitted['condition']!=condition or fitted['role']!='calibration_forecast'
+                or fitted['status']!='PASS' or fitted['observation_release']!=observation_tag
+                or fitted['observations']!=index):
+            raise ValueError('saved cost model does not match its declared observation source')
+        selected=[r for r in fitted['results'] if r['case']==f'110-{mode}']
+        if (len(selected)!=1 or selected[0]['status']!='PASS'
+                or selected[0]['deadline']!=entry['deadline']
+                or selected[0]['samples']!=index['registered']):
+            raise ValueError('saved cost model has a different mode, deadline or sample')
+        packet=read_json(observations/entry['file']);model=read_json(saved/'model.json.gz')
+        if (digest(canonical(packet))!=selected[0]['input_sha256']
+                or digest(canonical(model))!=selected[0]['model_sha256']):
+            raise ValueError('saved cost model or parent packet checksum differs')
         prep=dict(status='SAVED_MODEL',source_fit=fit_tag)
     else:
         prep=execute([sys.executable,'-m','industrial.measurement','prepare',str(observations/entry['file']),
@@ -146,7 +162,11 @@ def paired(case,observation_tag,fit_tag):
         good=[r for r in rows if r['status']=='OK']
         summary[method]=dict(required=5,completed=len(good),timeouts=sum(r['status']=='TIMEOUT' for r in rows),
             median_wall_s=statistics.median(r['process']['wall_s'] for r in good) if len(good)==5 else None,
-            median_completed_only_diagnostic_s=statistics.median(r['process']['wall_s'] for r in good) if good else None)
+            median_completed_only_diagnostic_s=statistics.median(r['process']['wall_s'] for r in good) if good else None,
+            completion_fraction=len(good)/5,
+            median_cpu_s=statistics.median(r['measurement']['cpu_s'] for r in good) if len(good)==5 else None,
+            median_peak_rss_bytes=statistics.median(r['measurement']['peak_rss_bytes'] for r in good) if len(good)==5 else None,
+            median_representation_bytes=statistics.median(r['measurement']['representation_bytes'] for r in good) if len(good)==5 else None)
     write_json(root/'measurement.json',dict(case=case,status='COMPLETE' if complete else 'PARTIAL',condition=condition,
         analysis_source_sha256=digest(Path('industrial/solver.py').read_bytes()),
         observation_release=observation_tag,fit_release=fit_tag,preparation=prep,shared_setup_s=setup_s,
