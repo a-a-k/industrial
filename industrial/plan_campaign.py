@@ -105,15 +105,15 @@ def generate(preflight,instance):
     write_json(root/'generation.json',report)
 
 
-def paired_difference(candidate,baseline):
+def paired_difference(candidate,baseline,alpha=.0125):
     from .statistics import lower,upper
     if set(candidate)!=set(baseline) or any(v is None for v in [*candidate.values(),*baseline.values()]):
         return dict(status='UNAVAILABLE')
     n=len(candidate);gain=sum(candidate[k] and not baseline[k] for k in candidate)
     loss=sum(baseline[k] and not candidate[k] for k in candidate)
     return dict(status='OK',samples=n,gain=gain,loss=loss,difference=(gain-loss)/n,
-        outer95=[lower(gain,n,.0125)-upper(loss,n,.0125),upper(gain,n,.0125)-lower(loss,n,.0125)],
-        confidence_scope='one fixed plan comparison and regime; four one-sided 98.75% binomial bounds')
+        outer95=[lower(gain,n,alpha)-upper(loss,n,alpha),upper(gain,n,alpha)-lower(loss,n,alpha)],
+        confidence_scope=f'four one-sided binomial bounds with alpha={alpha}; family scope specified by caller')
 
 
 def validate(registry_path,instance):
@@ -207,7 +207,7 @@ def validate(registry_path,instance):
 
 def report(registry_path):
     registry=read_json(registry_path);root=Path('output/plan-report');root.mkdir(parents=True,exist_ok=True)
-    records=[];rows=[];comparisons=[];missing=[];references=[]
+    records=[];rows=[];comparisons=[];missing=[];references=[];headlines=[]
     reference_rule=read_json('provenance/plan_reference.json')
     for index,tag in enumerate(registry['validations']):
         try:
@@ -221,6 +221,17 @@ def report(registry_path):
         references.append(dict(instance=record['instance'],name='nominal_best_frozen',
             plan_sha256=baseline['plan_sha256'],aliases=baseline['aliases'],
             nominal_makespan=baseline['nominal_makespan'],all_generation_wall_s=reference_cost))
+        original=next(p for p in record['plans'] if 'original' in p['aliases'])
+        for law in ('F1','F2'):
+            a,b=baseline['regimes'][law],original['regimes'][law]
+            paired=paired_difference(a['outcomes'],b['outcomes'],alpha=.05/24)
+            interval=paired.pop('outer95',None)
+            headlines.append(dict(instance=record['instance'],law=law,**paired,
+                nominal_makespan=baseline['nominal_makespan']/100,original_nominal_makespan=original['nominal_makespan']/100,
+                original_probability=b['probability'],generated_probability=a['probability'],
+                original_successes=b['successes'],generated_successes=a['successes'],
+                generated_plan_sha256=baseline['plan_sha256'],all_generation_wall_s=reference_cost,
+                simultaneous_outer95=interval))
         for plan in record['plans']:
             for alias in plan['aliases']:
                 if alias=='original':continue
@@ -242,9 +253,15 @@ def report(registry_path):
     result=dict(status='COMPLETE' if complete else 'PARTIAL',registry=registry,missing=missing,
         instances=[r['instance'] for r in records],evaluated_distinct_plans=sum(len(r['plans']) for r in records),
         per_regime_holdout=spec['validation_replications_per_law'],global_optimality_claimed=False,
-        new_optimizer_or_model_advantage_claimed=False,commit=os.environ['GITHUB_SHA'],run_id=os.environ['GITHUB_RUN_ID'])
+        new_optimizer_or_model_advantage_claimed=False,
+        six_comparisons_joint_lower_positive=len(headlines)==6 and all(h['status']=='OK' and h['simultaneous_outer95'][0]>0 for h in headlines),
+        commit=os.environ['GITHUB_SHA'],run_id=os.environ['GITHUB_RUN_ID'])
     write_json(root/'RESULT.json',result);write_json(root/'registry.json',registry)
     write_json(root/'nominal-reference.json',dict(rule=reference_rule,instances=references))
+    write_json(root/'main-comparisons.json',dict(comparisons=headlines,family_size=6,
+        one_sided_alpha=.05/24,joint_coverage_at_least=.95,
+        adjustment_added_at_final_analysis=True,
+        family_and_selection_rule_fixed_before_outcomes=True))
     write_json(root/'evidence.json.gz',records);write_json(root/'paired-comparisons.json',comparisons)
     if rows:
         with (root/'plans.csv').open('w',newline='') as stream:
@@ -252,6 +269,21 @@ def report(registry_path):
     lines=['# Генерация производственных планов','',f"Статус: **{result['status']}**.",'',
         'Генерируются назначения операций и очередность на тех же станках. Срок и законы отказов нормированы исходным C0. '
         'Результаты относятся к лучшим найденным планам при заданном бюджете, без доказательства глобальной оптимальности.',
+        '', '## Основные независимые сравнения','',
+        '| Экземпляр | Режим | Длительность до → после | Успех до → после | Изменение, п.п. | Совместная 95%-я область, п.п. |',
+        '|---|---|---:|---:|---:|---:|']
+    for h in headlines:
+        if h['status']!='OK':continue
+        lo,hi=h['simultaneous_outer95']
+        lines.append(f"| {h['instance']} | {h['law']} | {h['original_nominal_makespan']:g} → {h['nominal_makespan']:g} | "
+            f"{100*h['original_probability']:.2f}% → {100*h['generated_probability']:.2f}% | {100*h['difference']:+.2f} | "
+            f"[{100*lo:+.2f}; {100*hi:+.2f}] |")
+    lines += ['', 'План выбирается по минимальной безотказной длительности среди заранее замороженных вариантов. '
+        'Для шести основных сравнений при итоговом анализе добавлена совместная гарантия не ниже 95%: '
+        '24 односторонние биномиальные границы с alpha=0,05/24 и неравенство Бонферрони. '
+        'Само семейство и правило выбора планов закреплены до вычисления проверочных исходов. '
+        'Гарантия не распространяется на все остальные строки автоматически.',
+        '', '## Все замороженные варианты','',
         '', '| Экземпляр | Вариант | Режим | Безотказная длительность | Успехов | Вероятность |', '|---|---|---|---:|---:|---:|']
     for row in rows:
         probability='—' if row['probability'] is None else f"{row['probability']:.6f}"
