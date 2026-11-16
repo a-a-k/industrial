@@ -1,0 +1,33 @@
+name: Diagnose delays of a fixed manufacturing plan
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+env:
+  GH_REPO: ${{ github.repository }}
+  PYTHONPATH: .:vendor/simpat
+jobs:
+  diagnostics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container:
+      image: python:3.11.16-bookworm@sha256:b99029c95d3d37fb1e4e76d287f7984373dca77c665885986e31b2c95260c13c
+      options: --cpus=1 --memory=4g --memory-swap=4g
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: python scripts/budget.py
+      - run: apt-get update -qq && apt-get install -y --no-install-recommends gh
+      - name: Verify archived trajectories and explain observed delays
+        run: |
+          python -m compileall -q industrial/plan_diagnostics.py
+          python -m industrial.plan_diagnostics
+      - if: always()
+        run: |
+          mkdir -p output/plan-diagnostics/provenance
+          cp output/budget.json output/plan-diagnostics/provenance/ || true
+          python scripts/publish.py --name fixed-plan-diagnostics --path output/plan-diagnostics
