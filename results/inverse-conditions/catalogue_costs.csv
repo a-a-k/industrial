@@ -1,0 +1,11 @@
+instance,catalogue_release,catalogue_request_wall_s,candidate_family_wall_s,input_and_qualification_retrieval_s,scope
+Mk01,inverse-catalogue-Mk01-43883870405-1,5.022962428,2.8964759019999917,2.1264862050000204,"once per instance, shared by F1 and F2; excludes environment and compilation"
+Mk02,inverse-catalogue-Mk02-43882085406-1,6.910068433999868,3.9306498519999877,2.9794179509999594,"once per instance, shared by F1 and F2; excludes environment and compilation"
+Mk03,inverse-catalogue-Mk03-43882085406-1,14.455886089999979,11.361484939999997,3.094400761000003,"once per instance, shared by F1 and F2; excludes environment and compilation"
+Mk04,inverse-catalogue-Mk04-43883870405-1,6.122395683999997,3.803184931000004,2.319210262000013,"once per instance, shared by F1 and F2; excludes environment and compilation"
+Mk05,inverse-catalogue-Mk05-43882085406-1,80.99167853,76.94091361099998,4.05076418500002,"once per instance, shared by F1 and F2; excludes environment and compilation"
+Mk06,inverse-catalogue-Mk06-43882085406-1,83.93642501600002,81.40250965199999,2.5339150240000095,"once per instance, shared by F1 and F2; excludes environment and compilation"
+Mk07,inverse-catalogue-Mk07-43882085406-1,12.775426836999998,9.348691123999998,3.4267353430000043,"once per instance, shared by F1 and F2; excludes environment and compilation"
+Mk08,inverse-catalogue-Mk08-43882085406-1,17.603751700999965,14.570194711999989,3.0335564359999694,"once per instance, shared by F1 and F2; excludes environment and compilation"
+Mk09,inverse-catalogue-Mk09-43882085406-1,132.171864305,129.14278595,3.0290773360000003,"once per instance, shared by F1 and F2; excludes environment and compilation"
+Mk10,inverse-catalogue-Mk10-43883870405-1,137.138849188,134.745633591,2.3932151559999966,"once per instance, shared by F1 and F2; excludes environment and compilation"

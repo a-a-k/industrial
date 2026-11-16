@@ -1,0 +1,117 @@
+{
+  "version": "inverse-conditions-v1-campaign",
+  "profile": "provenance/inverse_conditions.json",
+  "input_seal": "fixed-input-seal-43849974405-1",
+  "qualification_runs": [
+    43880269702,
+    43881371976
+  ],
+  "accepted_qualification": "inverse-qualify-all-43881371976-1",
+  "qualified_numerical_source": "dca6e943631a1deb9ff334de959a14db5f8030e8",
+  "catalogue_runs": [
+    43882085406,
+    43883870405
+  ],
+  "catalogues": [
+    "inverse-catalogue-Mk01-43883870405-1",
+    "inverse-catalogue-Mk02-43882085406-1",
+    "inverse-catalogue-Mk03-43882085406-1",
+    "inverse-catalogue-Mk04-43883870405-1",
+    "inverse-catalogue-Mk05-43882085406-1",
+    "inverse-catalogue-Mk06-43882085406-1",
+    "inverse-catalogue-Mk07-43882085406-1",
+    "inverse-catalogue-Mk08-43882085406-1",
+    "inverse-catalogue-Mk09-43882085406-1",
+    "inverse-catalogue-Mk10-43883870405-1"
+  ],
+  "seal_run": 43884667107,
+  "seal": "inverse-seal-all-43884667107-1",
+  "registered_configurations": 288,
+  "certification_run": 43885033534,
+  "certification_source": "a296fefa324b40395a39952773f2654aa10c87ca",
+  "certifications": [
+    "inverse-certify-Mk01-F1-43885033534-1",
+    "inverse-certify-Mk01-F2-43885033534-1",
+    "inverse-certify-Mk02-F1-43885033534-1",
+    "inverse-certify-Mk02-F2-43885033534-1",
+    "inverse-certify-Mk03-F1-43885033534-1",
+    "inverse-certify-Mk03-F2-43885033534-1",
+    "inverse-certify-Mk04-F1-43885033534-1",
+    "inverse-certify-Mk04-F2-43885033534-1",
+    "inverse-certify-Mk05-F1-43885033534-1",
+    "inverse-certify-Mk05-F2-43885033534-1",
+    "inverse-certify-Mk06-F1-43885033534-1",
+    "inverse-certify-Mk06-F2-43885033534-1",
+    "inverse-certify-Mk07-F1-43885033534-1",
+    "inverse-certify-Mk07-F2-43885033534-1",
+    "inverse-certify-Mk08-F1-43885033534-1",
+    "inverse-certify-Mk08-F2-43885033534-1",
+    "inverse-certify-Mk09-F1-43885033534-1",
+    "inverse-certify-Mk09-F2-43885033534-1",
+    "inverse-certify-Mk10-F1-43885033534-1",
+    "inverse-certify-Mk10-F2-43885033534-1"
+  ],
+  "certification_status": "COMPLETE_20_OF_20",
+  "report_run": 43890891895,
+  "report": "inverse-report-all-43890891895-1",
+  "report_source": "b8992840667937acd7e27fc6f653b9a17639535a",
+  "report_status": "PASS",
+  "previous_comparative_claim": "NOT_ESTABLISHED",
+  "infrastructure_anomalies": [
+    {
+      "run": 43882085406,
+      "instances": [
+        "Mk01",
+        "Mk04",
+        "Mk10"
+      ],
+      "stage": "budget census before catalogue computation",
+      "error": "GitHub API HTTP 502",
+      "secondary_error": "early failure publication could not locate gh before environment setup",
+      "production_simulations": 0,
+      "candidate_searches": 0,
+      "resolution": "bounded transient API retries and emergency publisher setup; only these three catalogues retried",
+      "replacement_run": 43883870405,
+      "replacement_status": "PASS_3_OF_3",
+      "failed_job_ids": [
+        133350333660,
+        133350333739,
+        133350333443
+      ]
+    },
+    {
+      "run": 43888965410,
+      "stage": "report assembly",
+      "observation": "queued with zero jobs for over five minutes; cancel and force-cancel APIs returned HTTP409 not queued yet",
+      "production_simulations": 0,
+      "replacement_run": 43890035027,
+      "replacement_source_unchanged": true,
+      "status": "UNUSED_QUEUED_WITH_ZERO_JOBS_CANCEL_AND_FORCE_CANCEL_REJECTED",
+      "accepted_for_results": false
+    }
+  ],
+  "execution": "all preparation, numerical work, tests, simulation and report generation on standard GitHub-hosted Actions",
+  "initial_report_run": 43888965410,
+  "report_attempts": [
+    43888965410,
+    43890035027,
+    43890891895
+  ],
+  "initial_successful_report_run": 43890035027,
+  "initial_successful_report": "inverse-report-all-43890035027-1",
+  "technical_status": "COMPLETE",
+  "functional_status": "ALL_CASES_HAVE_CERTIFIED_CONDITIONS",
+  "report_archive_sha256": "402d1fc0ac7c35bda4c8e586dc611a6e7179a32eff745a03226fc116803a7a7e",
+  "result_scope": "All20cases have certified probability>=.95 in the registered model; menu-minimality confirmed16, unresolved4; global and economic optimality not claimed",
+  "baseline_status_counts": {
+    "FEASIBLE": 3,
+    "INFEASIBLE": 15,
+    "UNRESOLVED": 2
+  },
+  "condition_status_counts": {
+    "FEASIBLE": 208,
+    "INFEASIBLE": 68,
+    "UNRESOLVED": 12
+  },
+  "certified_frontier_plan_changes": 0
+}

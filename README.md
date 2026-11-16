@@ -27,6 +27,20 @@ The [competitor classes](results/fixed-plan-reinforcement/COMPARISON_CLASSES_RU.
 separate public manufacturer claims from the measured open implementations;
 commercial products were not run.
 
+The [inverse conditions report](results/inverse-conditions/REPORT_RU.md) checks
+joint plan and repair changes against a 95% whole-batch deadline target. All
+288 registered combinations are complete, with 8,192 new executions each:
+every one of the 20 instance/regime cases has certified sufficient conditions.
+Three original cases already meet the target; 15 fail it and two remain
+uncertain. All certified Pareto options retain the original schedule; the tested
+plan edits did not relax the certified repair requirements on the grid.
+For example, Mk08/F1 rises from 50.10% timely batches to
+99.67% when the exponential mean repair duration before rounding is quartered.
+Menu minimality is established in 16 cases and unresolved in four. The report
+includes analytic service constraints, complete schedules, all unsuccessful and
+uncertain combinations, simultaneous confidence bounds and complete cost scopes.
+These are requirements within the registered model and finite menu.
+
 The [manufacturing report](results/objectives/REPORT_RU.md) presents whole-batch
 deadline risk under machine failures, schedules generated from raw conditions,
 external checks of each objective and complete search costs. The

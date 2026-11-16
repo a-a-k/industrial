@@ -1,0 +1,21 @@
+instance,law,certification_request_wall_s,scope,production_scalar_samples,risk_dag_samples,s1_scalar_samples,full_trace_samples_per_engine
+Mk01,F1,30.30647053199999,certification request only; excludes environment and compilation; shared catalogue counted separately once,147456,147456,2304,288
+Mk01,F2,19.940808930999992,certification request only; excludes environment and compilation; shared catalogue counted separately once,147456,147456,2304,288
+Mk02,F1,12.124386402999988,certification request only; excludes environment and compilation; shared catalogue counted separately once,49152,49152,768,96
+Mk02,F2,9.238668619999999,certification request only; excludes environment and compilation; shared catalogue counted separately once,49152,49152,768,96
+Mk03,F1,21.873805962000006,certification request only; excludes environment and compilation; shared catalogue counted separately once,49152,49152,768,96
+Mk03,F2,14.282847032000006,certification request only; excludes environment and compilation; shared catalogue counted separately once,49152,49152,768,96
+Mk04,F1,16.395444120999997,certification request only; excludes environment and compilation; shared catalogue counted separately once,49152,49152,768,96
+Mk04,F2,16.084876379000036,certification request only; excludes environment and compilation; shared catalogue counted separately once,49152,49152,768,96
+Mk05,F1,34.667818882999995,certification request only; excludes environment and compilation; shared catalogue counted separately once,147456,147456,2304,288
+Mk05,F2,31.395577609000043,certification request only; excludes environment and compilation; shared catalogue counted separately once,147456,147456,2304,288
+Mk06,F1,42.800188429,certification request only; excludes environment and compilation; shared catalogue counted separately once,147456,147456,2304,288
+Mk06,F2,33.77361288700001,certification request only; excludes environment and compilation; shared catalogue counted separately once,147456,147456,2304,288
+Mk07,F1,13.071473357999992,certification request only; excludes environment and compilation; shared catalogue counted separately once,49152,49152,768,96
+Mk07,F2,11.244099556000037,certification request only; excludes environment and compilation; shared catalogue counted separately once,49152,49152,768,96
+Mk08,F1,37.487998055999924,certification request only; excludes environment and compilation; shared catalogue counted separately once,49152,49152,768,96
+Mk08,F2,28.973643080999977,certification request only; excludes environment and compilation; shared catalogue counted separately once,49152,49152,768,96
+Mk09,F1,91.01159785299998,certification request only; excludes environment and compilation; shared catalogue counted separately once,196608,196608,3072,384
+Mk09,F2,80.02209406399999,certification request only; excludes environment and compilation; shared catalogue counted separately once,196608,196608,3072,384
+Mk10,F1,158.34251513099997,certification request only; excludes environment and compilation; shared catalogue counted separately once,294912,294912,4608,576
+Mk10,F2,125.227661237,certification request only; excludes environment and compilation; shared catalogue counted separately once,294912,294912,4608,576
