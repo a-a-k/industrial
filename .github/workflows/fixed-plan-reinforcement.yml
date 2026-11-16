@@ -1,0 +1,82 @@
+name: Fixed-plan diagnosis and independently validated local reinforcement
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        type: choice
+        options: [qualify, train, seal, validate, report]
+        default: qualify
+      registry:
+        type: string
+        default: '{"input_seal":"fixed-input-seal-43849974405-1"}'
+      cells:
+        type: string
+        default: '["Mk01-F1","Mk01-F2","Mk02-F1","Mk02-F2","Mk03-F1","Mk03-F2","Mk04-F1","Mk04-F2","Mk05-F1","Mk05-F2","Mk06-F1","Mk06-F2","Mk07-F1","Mk07-F2","Mk08-F1","Mk08-F2","Mk09-F1","Mk09-F2","Mk10-F1","Mk10-F2"]'
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: industrial-fixed-local
+  cancel-in-progress: false
+env:
+  GH_REPO: ${{ github.repository }}
+  PYTHONPATH: .:vendor/simpat
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+jobs:
+  experiment:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        cell: ${{ fromJSON((inputs.stage == 'train' || inputs.stage == 'validate') && inputs.cells || '["all"]') }}
+    container:
+      image: python:3.11.16-bookworm@sha256:b99029c95d3d37fb1e4e76d287f7984373dca77c665885986e31b2c95260c13c
+      options: --cpus=1 --memory=4g --memory-swap=4g
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TSFG_SOURCE_SSH_KEY: ${{ secrets.TSFG_SOURCE_SSH_KEY }}
+      STAGE: ${{ inputs.stage }}
+      CELL: ${{ matrix.cell }}
+      REGISTRY: ${{ inputs.registry }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: python scripts/budget.py
+      - name: Start common first-use preparation clock
+        run: |
+          mkdir -p output/fixed-local
+          date +%s.%N > output/fixed-local/preparation-start.txt
+      - uses: ./.github/actions/experiment-environment
+        with:
+          build: none
+      - name: Record common setup and start S1 compiler setup
+        run: |
+          date +%s.%N > output/fixed-local/preparation-common-end.txt
+          date +%s.%N > output/fixed-local/preparation-go-start.txt
+      - if: inputs.stage == 'qualify' || inputs.stage == 'train' || inputs.stage == 'validate'
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.0'
+          cache: false
+      - name: Execute the registered stage
+        run: |
+          date +%s.%N > output/fixed-local/preparation-go-end.txt
+          python -m compileall -q industrial/local_corrections.py industrial/fixed_plan_reinforcement.py
+          if [ "$STAGE" = qualify ] || [ "$STAGE" = train ] || [ "$STAGE" = validate ]; then
+            python -m industrial.fixed_plan_reinforcement build
+          fi
+          date +%s.%N > output/fixed-local/preparation-end.txt
+          INSTANCE="${CELL%-F?}"
+          LAW="${CELL##*-}"
+          python -m industrial.fixed_plan_reinforcement "$STAGE" --instance "$INSTANCE" --law "$LAW" --registry "$REGISTRY"
+      - if: always()
+        run: |
+          mkdir -p output/fixed-local/provenance
+          cp output/budget.json output/fixed-local/provenance/ || true
+          cp build/*.json output/fixed-local/provenance/ || true
+          python scripts/publish.py --name "fixed-local-$STAGE-$CELL" --path output/fixed-local
