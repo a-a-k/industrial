@@ -55,6 +55,23 @@ def collect(folder,record,original):
             data=read_json(folder/label/entry['file'])
             if digest(canonical(data))!=entry['saved_plan_sha256']:raise ValueError('selected plan hash mismatch')
             add(plans,data,f'{label}:{index}')
+    expected=canonical(conditions(original))
+    for entry in plans.values():
+        data=entry['dataset']
+        if canonical(conditions(data))!=expected or data['nominal_makespan']!=original['nominal_makespan']:
+            raise ValueError('plan changed the conditions or reference C0')
+        ops=data['operations'];flat=[i for queue in data['queues'] for i in queue]
+        if sorted(flat)!=list(range(len(ops))):raise ValueError('machine queues do not cover exactly the operations')
+        for machine,queue in enumerate(data['queues']):
+            end=0
+            for i in queue:
+                op=ops[i]
+                if (op['machine']!=machine or not any(a['machine']==machine and a['work']==op['work'] for a in op['alternatives'])
+                    or op['planned_end']-op['planned_start']!=op['work']
+                    or any(type(op[k]) is not int or op[k]%data['delta'] for k in ('planned_start','planned_end'))
+                    or op['planned_start']<max([end,op['release'],*[ops[p]['planned_end'] for p in op['predecessors']]])):
+                    raise ValueError('infeasible nominal operation or machine order')
+                end=op['planned_end']
     return plans
 
 
