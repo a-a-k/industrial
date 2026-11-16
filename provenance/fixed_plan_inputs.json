@@ -1,0 +1,14 @@
+{
+  "version": "fixed-plan-local-repair-inputs-v1",
+  "instances": ["Mk01", "Mk02", "Mk03", "Mk04", "Mk05", "Mk06", "Mk07", "Mk08", "Mk09", "Mk10"],
+  "preflight": "preflight-43639035427-1",
+  "cp_environment": "cpsat-environment-43719097005-1",
+  "legacy_instances": ["Mk01", "Mk05", "Mk10"],
+  "legacy_source": "cpsat-plans-43719097005-1",
+  "cp_budget_s": 240,
+  "seed": 1701,
+  "workers": 1,
+  "deadline_multiplier": [11, 10],
+  "law_scale": "original list_v1 C0, unchanged after CP planning",
+  "role": "freeze all ten nominal input plans before local diagnostics and new correction holdout; no new planning algorithm"
+}
