@@ -69,6 +69,28 @@ def comparison_classes():
     (ROOT/'COMPARISON_CLASSES_RU.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
 
 
+def comparative_verdict(result,costmap):
+    records={(r['instance'],r['law']):r for r in result['conditions']}
+    contrasts=[c for r in result['conditions'] for c in r['paired_D_against'].values()]
+    if len(contrasts)!=100 or any(c['status']!='OK' or c['samples']!=4096 for c in contrasts):
+        raise ValueError('comparative verdict requires all 100 complete preregistered contrasts')
+    positive=[c for c in contrasts if c['outer95'][0]>0];shadowed=[];unshadowed=[]
+    for flag in result['measured_comparative_pairs']:
+        i,l=flag['instance'],flag['law'];r=records[(i,l)];method=flag['implementation']
+        alternatives=[m for m in ('S','G') if r['methods'][m]['plan']==r['methods']['D']['plan'] and
+            costmap[(i,l,m)]['first_use_from_fixed_plan_wall_s']<costmap[(i,l,method)]['first_use_from_fixed_plan_wall_s']]
+        (shadowed if alternatives else unshadowed).append(dict(flag,cheaper_same_plan_controls=alternatives))
+    if positive or unshadowed:raise ValueError('comparative interpretation requires a fresh criterion review')
+    statement='Преимущество диагностической стратегии по критерию лучшего внешнего результата при сопоставимой полной цене либо того же полезного результата дешевле сильных контролей не установлено.'
+    verdict=dict(status='NOT_ESTABLISHED',statement=statement,complete_contrasts=len(contrasts),
+        contrasts_including_zero=sum(c['outer95'][0]<=0<=c['outer95'][1] for c in contrasts),
+        confirmed_pairwise_external_advantages=len(positive),shadowed_cost_flags=shadowed,
+        s1_slower_than_same_policy_dag_conditions=sum(costmap[(i,l,'D')]['complete_process_wall_s']>
+            costmap[(i,l,'D-DAG')]['complete_process_wall_s'] for i,l in records),
+        scope='the frozen diagnostic strategy, edit catalogue and failure laws; not all possible virtual crash-test methods')
+    write_json(ROOT/'VERDICT.json',verdict);return verdict
+
+
 def present():
     result=read_json(ROOT/'RESULT.json')
     comparison_classes()
@@ -78,6 +100,7 @@ def present():
     records=sorted(result['conditions'],key=lambda r:(r['instance'],r['law']))
     if any(canonical(r['training'])!=canonical(sealed[(r['instance'],r['law'])]) for r in records):raise ValueError('presentation training changed')
     weakspots=[];table=[];costmap={(r['instance'],r['law'],r['method']):r for r in result['costs']}
+    overall=comparative_verdict(result,costmap)
     for record in records:
         instance,law=record['instance'],record['law'];cell=instance+'-'+law
         base=read_json(source/cell/'input.json');a=record['training']['answers']['D'];edit=a['selected']
@@ -176,6 +199,7 @@ def present():
     unchanged=sum(r['verdict']=='План оставлен без изменений' for r in table)
     lines=['# Результаты краш-тестов и локального усиления планов','',
         f'Серия **{result["status"]}**: проверено {result["completed_conditions"]} из 20 условий Mk01–Mk10/F1/F2.',
+        '', '**'+overall['statement']+'**','',
         f'Польза осуществимой правки подтверждена в {positive} условиях; ухудшение — в {negative}. '
         f'В {unchanged} условиях метод оставил исходный план без изменений. '
         f'В остальных {len(table)-positive-negative-unchanged} эффект предложенной правки не установлен.',
@@ -191,6 +215,10 @@ def present():
         '', 'Сильные открытые контроли используют статическую нагрузку и резервы, прямые трассы и просмотр всего каталога. '
         'D-DAG выполняет ту же стратегию, что S1/SIMPAT. Его совпадение с D отделяет диагностический алгоритм от стоимости движка; '
         'дополнительная информация в полной наблюдаемой вероятности SIMPAT не заявляется.',
+        f'Все {overall["complete_contrasts"]} сохранённых доверительных интервалов сравнений включают ноль. '
+        f'Отметок экономии относительно отдельного более узкого контроля: {len(overall["shadowed_cost_flags"])}; '
+        'в этих условиях S/G возвращают тот же физический план с меньшей стоимостью первого использования. '
+        'Эти отметки не устанавливают преимущество над сильнейшими разумными контролями.',
         'Стоимость решения и необходимые первичные сборки находятся в costs.csv. Сравнительная польза стратегии '
         'не следует автоматически из улучшения относительно исходного плана. Полные 100 парных сравнений, '
         'общие доверительные границы и затраты находятся в RESULT.json и TECHNICAL_REPORT_RU.md.',
@@ -200,16 +228,19 @@ def present():
         'не проверялись. Результаты не устанавливают почти стопроцентную точность прогноза в реальном производстве.',
         f'Ошибки, тайм-ауты и невыполненные обязательства не считаются срывами производства. '
         f'В итоговом протоколе невыполненных обязательств: {len(result["missing"])}.']
+    lines+=['', 'Отрицательный вывод относится к проверенной стратегии, заданному каталогу малых правок и законам отказов. '
+        'Он не доказывает отсутствие любого эффекта или бесполезность виртуальных краш-тестов вообще.']
     registry=read_json('provenance/fixed_plan_reinforcement_runs.json')
     infrastructure=registry.get('infrastructure_anomalies',[])
     for issue in infrastructure:
         lines+=['', f'Служебный сбой GitHub: при запуске фиксации {issue["run"]} не появился runner; '
             f'API отмены возвратил HTTP 409. Фиксация успешно выполнена повторным запуском {issue["replacement_run"]}. '
-            'Первый запуск не используется в проверочных результатах и не выполнял производственных симуляций. '
+            'Первое служебное задание позднее начало выполняться и было отменено как неиспользуемый дубликат. '
+            'Оно не используется в проверочных результатах и не выполняло производственных симуляций. '
             'Это отдельный сбой планирования задания, а не срыв срока партии или тайм-аут вычислителя.']
     (ROOT/'REPORT_RU.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
     write_json(ROOT/'presentation.json',dict(status=result['status'],conditions=table,seal_receipt=receipt,
-        infrastructure_anomalies=infrastructure,
+        infrastructure_anomalies=infrastructure,scientific_verdict=overall,
         source_sha256=digest(Path('industrial/reinforcement_presentation.py').read_bytes()),
         claim='presentation of sealed results; no new selection, simulation or significance tests'))
 
