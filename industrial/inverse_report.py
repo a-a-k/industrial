@@ -63,8 +63,12 @@ def report(registry):
             seen.add(key);records.append(dict(certification_release=tag,certification_receipt=rcpt,**r))
         except Exception as error:missing.append(dict(release=tag,error=str(error)))
     missing.extend(dict(instance=i,law=l,error='required inverse certification missing') for i,l in sorted(expected-seen))
-    summaries=[];all_rows=[];frontier_rows=[];cost_rows=[];recommendations=[]
+    summaries=[];all_rows=[];frontier_rows=[];cost_rows=[];catalogue_cost_rows=[];recommendations=[]
     for instance,cat in sorted(catalogues.items()):
+        catalogue_cost_rows.append(dict(instance=instance,catalogue_release=cat['release'],
+            catalogue_request_wall_s=cat['catalogue_wall_s'],candidate_family_wall_s=cat['candidate_family_wall_s'],
+            input_and_qualification_retrieval_s=cat['input_and_qualification_retrieval_s'],
+            scope='once per instance, shared by F1 and F2; excludes environment and compilation'))
         for p in cat['plans']:
             dest=ROOT/'plans'/instance/p['key'];dest.parent.mkdir(parents=True,exist_ok=True)
             shutil.copytree(source/instance/'plans'/p['key'],dest)
@@ -90,8 +94,9 @@ def report(registry):
             baseline_probability=original['probability'],baseline_lower=original['lower'],baseline_status=original['status'],
             frontier_options=len(frontier),frontier_minimum_proved=sum(v['minimum_proved_in_menu'] for v in local_front))
         summaries.append(summary)
-        cost_rows.append(dict(instance=i,law=l,catalogue_full_wall_s=cat_wall(r),
-            certification_full_wall_s=r['wall_s'],production_scalar_samples=sum(c['samples'] for c in conditions),
+        cost_rows.append(dict(instance=i,law=l,certification_request_wall_s=r['wall_s'],
+            scope='certification request only; excludes environment and compilation; shared catalogue counted separately once',
+            production_scalar_samples=sum(c['samples'] for c in conditions),
             risk_dag_samples=sum(c['samples'] for c in conditions),s1_scalar_samples=sum(c['s1_scalar_samples'] for c in conditions),
             full_trace_samples_per_engine=sum(c['full_trace_samples'] for c in conditions)))
         lines=[f'# {i}, {l}: план и требования к ремонту','',
@@ -129,7 +134,10 @@ def report(registry):
             'Единицы времени исходные, не реальные минуты; в JSON/CSV расписаний100ticks=1единица. Средние ремонты указаны ДО округления вверх к шагу0,05. '
             'Достижимость этих средних на реальном предприятии и денежные затраты не проверялись.']
         (case/'REPORT_RU.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
-    for name,values in [('conditions.csv',all_rows),('frontier.csv',frontier_rows),('summary.csv',summaries),('costs.csv',cost_rows)]:csv_file(ROOT/name,values)
+    for name,values in [('conditions.csv',all_rows),('frontier.csv',frontier_rows),('summary.csv',summaries),
+        ('costs.csv',cost_rows),('catalogue_costs.csv',catalogue_cost_rows)]:csv_file(ROOT/name,values)
+    budget=read_json('output/budget.json')
+    csv_file(ROOT/'campaign_job_costs_at_report_start.csv',budget['jobs'])
     complete=not missing and seen==expected and len(all_rows)==seal['configurations']
     all_feasible=complete and all(s['frontier_options']>0 for s in summaries)
     result=dict(technical_status='COMPLETE' if complete else 'PARTIAL',
@@ -159,12 +167,13 @@ def report(registry):
         'Парето сравнивает число переназначений, инверсии очередей и уменьшение среднего ремонта без придуманных денежных весов. '
         'Минимальность относится только к зарегистрированному меню и подтверждается лишь при исключении всех менее требовательных вариантов. '
         'Глобальная оптимальность среди всех расписаний и всех индивидуальных ремонтных политик не заявляется.',
-        'conditions.csv содержит все результаты; frontier.csv — подтверждённые недоминируемые варианты; costs.csv — полные времена '
-        'построения семейств и сертификации. Подготовка окружения и компиляции, ограниченные CP-поиски, ошибки и остановки '
-        'входят в общий72runner-часовой бюджет и сохранены в первичных выпусках.',
+        'conditions.csv содержит все результаты; frontier.csv — варианты, недоминируемые среди подтверждённо допустимых. '
+        'Неопределённый вариант ещё может их доминировать; доказанная минимальность отдельно отмечена полем minimum_proved_in_menu. '
+        'catalogue_costs.csv учитывает построение каждого семейства ОДИН раз для обеих моделей поломок; costs.csv —20 отдельных запросов сертификации. '
+        'Эти времена запросов включают передачу входов, но исключают подготовку окружения и компиляцию. '
+        'Полный снимок затрат всех завершённых заданий кампании на начало сборки отчёта находится в campaign_job_costs_at_report_start.csv; '
+        'текущее задание отчёта там ещё не завершено. Подготовка, компиляции, ограниченные CP-поиски, ошибки и остановки '
+        'входят в общий72runner-часовой бюджет; первичные выпуски и журналы Actions сохраняют их отдельно.',
         f'Невыполненных обязательств: {len(missing)}.']
     (ROOT/'REPORT_RU.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
     if not complete:raise ValueError('full inverse certification campaign remains incomplete')
-
-
-def cat_wall(record):return record['catalogue']['catalogue_wall_s']
