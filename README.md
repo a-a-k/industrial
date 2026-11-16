@@ -1,5 +1,11 @@
 # Manufacturing crash tests and plan generation
 
+The primary engineering task is to crash-test a fixed technologist-approved
+plan, explain weak places, and validate targeted corrections. The
+[fixed-plan diagnostic protocol](docs/FIXED_PLAN_DIAGNOSTICS_RU.md) separates
+observed delays, causal sensitivity and feasible local changes. Archived Mk10
+is a research example; causal benefits of corrections are not yet established.
+
 The [manufacturing report](results/objectives/REPORT_RU.md) presents whole-batch
 deadline risk under machine failures, schedules generated from raw conditions,
 external checks of each objective and complete search costs. The
