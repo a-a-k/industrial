@@ -3,6 +3,8 @@ import datetime as dt
 import json
 import os
 from pathlib import Path
+import time
+import urllib.error
 import urllib.request
 
 if os.environ.get('GITHUB_ACTIONS')!='true':raise SystemExit('Actions only')
@@ -10,7 +12,22 @@ repo=os.environ['GITHUB_REPOSITORY'];token=os.environ['GH_TOKEN']
 def get(path):
     request=urllib.request.Request('https://api.github.com/'+path,headers={
         'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'})
-    with urllib.request.urlopen(request,timeout=60) as r:return json.load(r)
+    for attempt in range(5):
+        try:
+            with urllib.request.urlopen(request,timeout=60) as r:return json.load(r)
+        except (urllib.error.URLError,TimeoutError) as error:
+            code=error.code if isinstance(error,urllib.error.HTTPError) else None
+            transient=code is None or code==429 or 500<=code<600
+            final=not transient or attempt==4
+            delay=0 if final else min(30,2**(attempt+1))
+            retries.append(dict(path=path,attempt=attempt+1,http_status=code,final=final,retry_delay_s=delay))
+            Path('output').mkdir(exist_ok=True)
+            Path('output/budget-api-retries.json').write_text(json.dumps(retries,indent=2)+'\n')
+            print(json.dumps(dict(budget_api_http_status=code,attempt=attempt+1,retrying=not final)))
+            if final:raise
+            time.sleep(delay)
+
+retries=[]
 def when(s):return dt.datetime.fromisoformat(s.replace('Z','+00:00'))
 completed=0.;reserved=0.;census=[]
 page=1
