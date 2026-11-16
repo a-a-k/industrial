@@ -40,6 +40,101 @@ def features(plan,deadline):
         repair_exposure_proxy=sum(o['work']*math.exp(-max(0,floats[o['id']])/repair_mean) for o in ops))
 
 
+def structural(plan):
+    """Simple machine relabelings are identical under homogeneous F1/F2."""
+    ops=plan['operations'];children=[set() for _ in ops]
+    for o in ops:
+        for p in o['predecessors']:children[p].add(o['id'])
+    for queue in plan['queues']:
+        for a,b in zip(queue,queue[1:]):children[a].add(b)
+    order=sorted(range(len(ops)),key=lambda i:(ops[i]['planned_start'],i))
+    cmax=max(o['planned_end'] for o in ops);latest={}
+    for i in reversed(order):latest[i]=min([cmax,*[latest[j] for j in children[i]]])-ops[i]['work']
+    critical={i for i in order if latest[i]==ops[i]['planned_start']}
+    events=[];ways={i:0 for i in critical};incoming={i:0 for i in critical}
+    for i in critical:
+        events.extend([(ops[i]['planned_start'],1),(ops[i]['planned_end'],-1)])
+        for j in children[i]:
+            if j in critical and ops[i]['planned_end']==ops[j]['planned_start']:incoming[j]+=1
+    width=active=0
+    for _,change in sorted(events):active+=change;width=max(width,active)
+    for i in order:
+        if i not in critical:continue
+        if not incoming[i]:ways[i]=1
+        for j in children[i]:
+            if j in critical and ops[i]['planned_end']==ops[j]['planned_start']:ways[j]+=ways[i]
+    paths=sum(ways[i] for i in critical if ops[i]['planned_end']==cmax)
+    keys=('id','job','work','planned_start','planned_end','release','predecessors')
+    quotient=digest(canonical(dict(operations=[{k:o[k] for k in keys} for o in ops],
+        anonymous_queues=sorted(tuple(q) for q in plan['queues']),jobs=plan['jobs'],delta=plan['delta'])))
+    return dict(machine_relabeling_class=quotient,critical_operations=len(critical),
+        critical_width=width,critical_path_log2=math.log2(paths),
+        assignment_sha256=digest(canonical([(o['machine'],o['work']) for o in ops])))
+
+
+def structures():
+    import gzip
+    ROOT.mkdir(parents=True,exist_ok=True);summaries=[];allrows=[];receipts=[]
+    def extent(rows,key):return [min(r[key] for r in rows),max(r[key] for r in rows)] if rows else None
+    for instance in INSTANCES:
+        tag=f'objectives-generate-{instance}-43810873992-1'
+        source,receipt=fetch(tag,f'output/structure-source-{instance}');receipts.append(dict(tag=tag,**receipt))
+        generation=read_json(source/'generation.json');problem=read_json(source/'problem.json')
+        if generation['status']!='PASS':raise ValueError('unavailable generation')
+        data=from_conditions(problem['conditions']);deadline=problem['deadline']
+        for case in generation['results']:
+            folder=source/case['case'];prefix=read_json(folder/'cp-seed/schedule.json')
+            base=features(prefix,deadline);base_structure=structural(prefix);rows=[];seen=set()
+            for selected in case['result']['selected']:
+                if digest(canonical(read_json(folder/selected['file'])))!=selected['saved_plan_sha256']:
+                    raise ValueError('selected input changed')
+            with gzip.open(folder/'search-trace.jsonl.gz','rt',encoding='utf-8') as stream:
+                import json
+                for line in stream:
+                    record=json.loads(line)
+                    if record['status']!='OK' or record['plan_sha256'] in seen:continue
+                    seen.add(record['plan_sha256']);plan=decode(data,record['genome'])
+                    if plan_identity(plan)!=record['plan_sha256']:raise ValueError('trace decoding mismatch')
+                    score=record['score'];value=features(plan,deadline)
+                    if value['nominal_makespan']!=score['nominal_makespan']:raise ValueError('trace score mismatch')
+                    # Exactly the preregistered 5% band around the paid CP prefix.
+                    if 20*value['nominal_makespan']>21*base['nominal_makespan']:continue
+                    rows.append(dict(instance=instance,case=case['case'],physical_sha256=physical(plan),**value,**structural(plan),
+                        cal_f1_successes=score['F1']['successes'],cal_f2_successes=score['F2']['successes'],cal_samples=score['F1']['samples']))
+            same=[r for r in rows if r['nominal_makespan']==base['nominal_makespan']]
+            fixed=[r for r in same if r['assignment_sha256']==base_structure['assignment_sha256']]
+            summaries.append(dict(instance=instance,case=case['case'],unique_evaluated=len(seen),near_nominal=len(rows),
+                cp_nominal_makespan=base['nominal_makespan'],same_nominal=len(same),
+                same_nominal_resource_classes=len({r['machine_relabeling_class'] for r in same}),
+                fixed_assignment_same_nominal=len(fixed),fixed_assignment_resource_classes=len({r['machine_relabeling_class'] for r in fixed}),
+                critical_width_range=extent(same,'critical_width'),maximum_load_range=extent(same,'maximum_machine_load'),
+                repair_exposure_range=extent(same,'repair_exposure_proxy'),cal_f1_success_range=extent(same,'cal_f1_successes'),
+                fixed_assignment_critical_width_range=extent(fixed,'critical_width'),
+                fixed_assignment_cal_f1_success_range=extent(fixed,'cal_f1_successes'),
+                historical_generation_process=case['process'],historical_prefix_preparation_s=case['result']['preparation_s']))
+            allrows.extend(rows);write_json(ROOT/'progress.json',summaries)
+    with (ROOT/'structures.csv').open('w',newline='') as stream:
+        writer=csv.DictWriter(stream,fieldnames=list(allrows[0]));writer.writeheader();writer.writerows(allrows)
+    result=dict(status='COMPLETE',scope='archival structural feasibility analysis; no new trajectories or holdout access',
+        band='20*C_nom <= 21*paid_CP_prefix_C_nom; no free best from later risk search',
+        summaries=summaries,receipts=receipts,
+        source_warning='these genomes were produced by risk-directed search; they cannot be used as an independent pool to prove the value of risk information',
+        symmetry_scope='operation-label-preserving global permutations of exchangeable machines only; not a proof of distributional difference for remaining classes',
+        commit=os.environ['GITHUB_SHA'],run_id=os.environ['GITHUB_RUN_ID'])
+    write_json(ROOT/'STRUCTURES.json',result)
+    lines=['# Разнообразие расписаний при одинаковой номинальной длительности','',
+        'Архивный анализ исходных геномов: новые планы не оптимизируются и производственные траектории не исполняются. Проверочные исходы не читаются. Рабочие счётчики используются только как разведочные сведения.',
+        'Опорная длительность принадлежит уже оплаченному CP-prefix каждого старого вызова. Простые перестановки одинаковых станков объединяются. Сохранение разных классов не доказывает различную истинную надёжность.',
+        '', '| Задача | Вызов | Планы с тем же номиналом | После объединения перестановок станков | Из них с прежними назначениями | Ширина критических ветвей | Рабочие успехи F1 из64 |',
+        '|---|---|---:|---:|---:|---|---|']
+    for r in summaries:
+        lines.append(f'| {r["instance"]} | {r["case"]} | {r["same_nominal"]} | {r["same_nominal_resource_classes"]} | '
+            f'{r["fixed_assignment_same_nominal"]} | {r["critical_width_range"]} | {r["cal_f1_success_range"]} |')
+    lines+=['', 'Планы здесь получены прошлым поиском с учётом рисков. Дорогой такой пул нельзя бесплатно дать одному методу или объявить независимым свидетельством полезности краш-тестов.',
+        'Анализ проверяет наличие структурных альтернатив для будущего контролируемого опыта. Он не устанавливает внешний выигрыш и не измеряет цену нового независимого генератора пула.']
+    (ROOT/'REPORT_RU.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
+
+
 def audit():
     ROOT.mkdir(parents=True,exist_ok=True);cases=[];rows=[]
     for instance in INSTANCES:
@@ -122,4 +217,9 @@ def audit():
     (ROOT/'REPORT_RU.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
 
 
-if __name__=='__main__':actions_only();audit()
+if __name__=='__main__':
+    import argparse
+    actions_only();parser=argparse.ArgumentParser();parser.add_argument('stage',choices=('audit','structures'),default='audit',nargs='?')
+    args=parser.parse_args()
+    if args.stage=='structures':structures()
+    else:audit()
