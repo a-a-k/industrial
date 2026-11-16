@@ -74,6 +74,13 @@ jobs:
           INSTANCE="${CELL%-F?}"
           LAW="${CELL##*-}"
           python -m industrial.fixed_plan_reinforcement "$STAGE" --instance "$INSTANCE" --law "$LAW" --registry "$REGISTRY"
+      - if: always() && inputs.stage == 'report'
+        name: Present the sealed external results and actual corrections
+        run: |
+          if [ -f output/fixed-local/RESULT.json ]; then
+            python -m compileall -q industrial/reinforcement_presentation.py
+            python -m industrial.reinforcement_presentation
+          fi
       - if: always()
         run: |
           mkdir -p output/fixed-local/provenance

@@ -9,6 +9,12 @@ The [first diagnostic report](results/fixed-plan-diagnostics/REPORT_RU.md)
 contains the unchanged plan's observed waits, affected operations and an example
 waiting chain. It does not select a replacement schedule.
 
+The [full local-reinforcement protocol](docs/FIXED_PLAN_REINFORCEMENT_RU.md)
+covers all ten fixed nominal plans under F1/F2, one feasible local correction,
+strong open controls and a common decision seal before independent validation.
+Detailed reports include the physical operation/machine edit, complete schedule
+files and external whole-batch effects. Commercial products are not measured.
+
 The [manufacturing report](results/objectives/REPORT_RU.md) presents whole-batch
 deadline risk under machine failures, schedules generated from raw conditions,
 external checks of each objective and complete search costs. The
