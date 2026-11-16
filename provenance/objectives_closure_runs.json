@@ -1,0 +1,26 @@
+{
+  "protocol": "provenance/objectives_closure.json",
+  "generation": {
+    "run": 43810873992,
+    "source": "b8f46b7432f0ad68066439ab4d53c8a07df99e24",
+    "releases": ["objectives-generate-Mk01-43810873992-1", "objectives-generate-Mk05-43810873992-1", "objectives-generate-Mk10-43810873992-1"]
+  },
+  "validation": {
+    "run": 43812402395,
+    "source": "9a33f9c3df2bfeefd129236b2c4823026d98edb0",
+    "releases": ["objectives-validate-Mk01-43812402395-1", "objectives-validate-Mk05-43812402395-1", "objectives-validate-Mk10-43812402395-1"]
+  },
+  "initial_report": {
+    "run": 43813027778,
+    "source": "f0a270eb0501b10773e38896fde3a2865c3c0bad",
+    "release": "objectives-report-report-43813027778-1"
+  },
+  "final_report": {
+    "run": 43813743446,
+    "source": "13884d7bb26347652408475e8523ab1a1e83d91b",
+    "release": "objectives-report-report-43813743446-1",
+    "receipt": "provenance/objectives_report_receipt.json",
+    "result": "results/objectives/RESULT.json"
+  },
+  "report_revision_scope": "Manufacturing interpretation, explicit external Pareto verdict and complete cost presentation; no generation or holdout was repeated. Initial report remains immutable."
+}

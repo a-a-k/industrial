@@ -1,0 +1,13 @@
+{
+  "name": "objectives-report-report",
+  "commit": "13884d7bb26347652408475e8523ab1a1e83d91b",
+  "run_id": "43813743446",
+  "archive_sha256": "ec1d0d35a233932e9918a2f6d6d11a25d62e9c0127229e088d594e9bd5233ab3",
+  "parts": [
+    {
+      "name": "objectives-report-report-43813743446-1.tar.gz",
+      "bytes": 1292253,
+      "sha256": "ec1d0d35a233932e9918a2f6d6d11a25d62e9c0127229e088d594e9bd5233ab3"
+    }
+  ]
+}

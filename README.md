@@ -1,4 +1,11 @@
-# Manufacturing observations and exact joint-law analysis
+# Manufacturing crash tests and plan generation
+
+The [manufacturing report](results/objectives/REPORT_RU.md) presents whole-batch
+deadline risk under machine failures, schedules generated from raw conditions,
+external checks of each objective and complete search costs. The
+[plan catalog](results/objectives/catalog.csv) links actual JSON and CSV schedules
+for nominal duration, deadline success, worst-regime success and Pareto objectives,
+with historical and current versions kept separate.
 
 Reproducible E1–E6 study of manufacturing semantics, observation-based model
 identification, exact attainable probability bounds, target-preserving reduction,

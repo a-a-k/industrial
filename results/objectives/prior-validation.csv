@@ -1,0 +1,37 @@
+instance,seed,method,wall_s,cost_type,nominal_makespan,F1,F2
+Mk01,1701,cp_nominal,0.31565783699998917,complete measured optimization process,40.0,0.90625,0.9375
+Mk01,1701,cp_pool_mc,0.6400767060000021,complete measured optimization process,40.0,0.90625,0.9375
+Mk01,1701,cp_short,0.31184118100000546,observed hybrid preparation window plus conservatively allocated process launch/finalization overhead; not an independent standalone timing,40.0,0.90625,0.9375
+Mk01,1701,hybrid,15.541464160000004,complete measured optimization process,40.0,0.90625,0.9375
+Mk01,1702,cp_nominal,0.3729874599999903,complete measured optimization process,40.0,0.9111328125,0.9365234375
+Mk01,1702,cp_pool_mc,0.7562396290000066,complete measured optimization process,40.0,0.9111328125,0.9365234375
+Mk01,1702,cp_short,0.3788434579999773,observed hybrid preparation window plus conservatively allocated process launch/finalization overhead; not an independent standalone timing,40.0,0.9111328125,0.9365234375
+Mk01,1702,hybrid,22.478354616999994,complete measured optimization process,40.0,0.9111328125,0.9375
+Mk01,1703,cp_nominal,0.45955686499999615,complete measured optimization process,40.0,0.90625,0.9375
+Mk01,1703,cp_pool_mc,1.0536146179999974,complete measured optimization process,40.0,0.90625,0.9375
+Mk01,1703,cp_short,0.4732831619999871,observed hybrid preparation window plus conservatively allocated process launch/finalization overhead; not an independent standalone timing,40.0,0.90625,0.9375
+Mk01,1703,hybrid,29.261285177999994,complete measured optimization process,40.0,0.90625,0.9375
+Mk05,1701,cp_nominal,235.08236467500006,complete measured optimization process,173.0,0.880859375,0.92578125
+Mk05,1701,cp_pool_mc,195.90667807,complete measured optimization process,173.0,0.880859375,0.92578125
+Mk05,1701,cp_short,55.088205607000035,observed hybrid preparation window plus conservatively allocated process launch/finalization overhead; not an independent standalone timing,173.0,0.880859375,0.92578125
+Mk05,1701,hybrid,67.89398532400001,complete measured optimization process,173.0,0.880859375,0.92578125
+Mk05,1702,cp_nominal,235.101012224,complete measured optimization process,173.0,0.8837890625,0.927734375
+Mk05,1702,cp_pool_mc,196.73652472700002,complete measured optimization process,173.0,0.8837890625,0.927734375
+Mk05,1702,cp_short,55.142163133,observed hybrid preparation window plus conservatively allocated process launch/finalization overhead; not an independent standalone timing,173.0,0.8837890625,0.927734375
+Mk05,1702,hybrid,82.199148509,complete measured optimization process,173.0,0.8837890625,0.927734375
+Mk05,1703,cp_nominal,235.084081197,complete measured optimization process,173.0,0.8818359375,0.921875
+Mk05,1703,cp_pool_mc,197.41572734200003,complete measured optimization process,173.0,0.8818359375,0.921875
+Mk05,1703,cp_short,55.094049146999964,observed hybrid preparation window plus conservatively allocated process launch/finalization overhead; not an independent standalone timing,173.0,0.8818359375,0.921875
+Mk05,1703,hybrid,94.06357265899999,complete measured optimization process,173.0,0.8818359375,0.921875
+Mk10,1701,cp_nominal,235.096675403,complete measured optimization process,222.0,0.8505859375,0.9287109375
+Mk10,1701,cp_pool_mc,201.20637561400002,complete measured optimization process,234.0,0.8115234375,0.912109375
+Mk10,1701,cp_short,55.120146152000075,observed hybrid preparation window plus conservatively allocated process launch/finalization overhead; not an independent standalone timing,233.0,0.814453125,0.912109375
+Mk10,1701,hybrid,92.75150199200004,complete measured optimization process,241.0,0.8056640625,0.91015625
+Mk10,1702,cp_nominal,235.09863734400005,complete measured optimization process,220.0,0.8603515625,0.9326171875
+Mk10,1702,cp_pool_mc,201.83471743500002,complete measured optimization process,220.0,0.8603515625,0.9326171875
+Mk10,1702,cp_short,55.10485756899993,observed hybrid preparation window plus conservatively allocated process launch/finalization overhead; not an independent standalone timing,234.0,0.8076171875,0.91015625
+Mk10,1702,hybrid,92.44222823799998,complete measured optimization process,234.0,0.8076171875,0.91015625
+Mk10,1703,cp_nominal,235.109632954,complete measured optimization process,221.0,0.8515625,0.9365234375
+Mk10,1703,cp_pool_mc,202.691555801,complete measured optimization process,221.0,0.8486328125,0.9345703125
+Mk10,1703,cp_short,55.15733473199998,observed hybrid preparation window plus conservatively allocated process launch/finalization overhead; not an independent standalone timing,232.0,0.80859375,0.91015625
+Mk10,1703,hybrid,96.098814116,complete measured optimization process,232.0,0.80859375,0.91015625
