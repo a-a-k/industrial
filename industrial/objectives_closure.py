@@ -75,6 +75,7 @@ def generate(instance):
                          '--objective',objective,'--seed',str(seed)],timeout=300)
             result=read_json(folder/'result.json') if (folder/'result.json').exists() else dict(status='UNAVAILABLE')
             if process['status']!='OK':result=dict(result,status='UNAVAILABLE')
+            elif process['wall_s']>cfg['search']['total_budget_s']:result=dict(result,status='BUDGET_EXCEEDED')
             results.append(dict(case=label,seed=seed,objective=objective,process=process,result=result))
             write_json(ROOT/'progress.json',dict(instance=instance,results=results))
     record=dict(status='PASS' if len(results)==6 and all(c['result']['status']=='PASS' for c in results) else 'PARTIAL',
@@ -98,6 +99,9 @@ def sealed(registry):
         expected={(s,o) for s in cfg['seeds'] for o in cfg['objectives']}
         if {(c['seed'],c['objective']) for c in record['results']}!=expected or len(record['results'])!=6:
             raise ValueError('not the full registered matrix')
+        if any(c['process']['status']!='OK' or c['process']['wall_s']>cfg['search']['total_budget_s']
+               or c['result']['status']!='PASS' for c in record['results']):
+            raise ValueError('full fresh-process budget exceeded or generation unavailable')
         plans=collect(folder,record,read_json(folder/'original.json'))
         entries[record['instance']]=(folder,record,plans)
         seal.append(dict(instance=record['instance'],tag=tag,archive_sha256=receipt['archive_sha256'],
@@ -118,6 +122,7 @@ def validate(instance,registry):
     write_json(ROOT/'seal.json',dict(generations=seal,distinct_plans=total_plans,selected=total_selected,
                                     rate_endpoint_alpha=rate_alpha,pair_endpoint_alpha=pair_alpha))
     source,generation,plans=entries[instance];data=read_json(source/'original.json');deadline=data['nominal_makespan']*11//10
+    shutil.copyfile(source/'problem.json',ROOT/'problem.json')
     jobs=[j['id'] for j in data['jobs'] if not j.get('optional',False)]
     banks={law:scenarios(data,law,cfg['validation_split'],cfg['validation_replications_per_law']) for law in cfg['laws']}
     write_json(ROOT/'holdout-calendars.json.gz',banks);results=[]
@@ -179,23 +184,68 @@ def validate(instance,registry):
     if not complete:raise ValueError('external acceptance incomplete; retain all failures')
 
 
+def external_relation(candidate,reference,laws,paired=None):
+    """Describe frozen points; infer only from registered simultaneous bounds."""
+    if candidate['plan_sha256']==reference['plan_sha256']:
+        return dict(status='IDENTICAL',empirical_relation='identical',worst_difference=0.,worst_interval=[0.,0.])
+    if any(r['regimes'][l]['status']!='COMPLETE' for r in (candidate,reference) for l in laws):
+        return dict(status='UNAVAILABLE')
+    nominal=candidate['nominal_makespan']-reference['nominal_makespan']
+    differences=[reference['nominal_makespan']-candidate['nominal_makespan']]
+    intervals=[]
+    for law in laws:
+        c,b=candidate['regimes'][law],reference['regimes'][law]
+        differences.append(c['probability']-b['probability'])
+        intervals.append(paired[law]['outer95'] if paired else
+                         [c['simultaneous95'][0]-b['simultaneous95'][1],c['simultaneous95'][1]-b['simultaneous95'][0]])
+    empirical=('candidate_dominates' if all(d>=0 for d in differences) and any(d>0 for d in differences)
+        else 'reference_dominates' if all(d<=0 for d in differences) and any(d<0 for d in differences)
+        else 'same_estimated_point' if all(d==0 for d in differences) else 'tradeoff')
+    favor_candidate=nominal<0 or any(lo>0 for lo,hi in intervals)
+    favor_reference=nominal>0 or any(hi<0 for lo,hi in intervals)
+    if nominal<=0 and all(lo>=0 for lo,hi in intervals) and favor_candidate:status='CONFIRMED_DOMINATES'
+    elif nominal>=0 and all(hi<=0 for lo,hi in intervals) and favor_reference:status='CONFIRMED_DOMINATED'
+    elif favor_candidate and favor_reference:status='CONFIRMED_TRADEOFF'
+    else:status='INCONCLUSIVE'
+    c=[min(candidate['regimes'][l]['simultaneous95'][i] for l in laws) for i in (0,1)]
+    b=[min(reference['regimes'][l]['simultaneous95'][i] for l in laws) for i in (0,1)]
+    return dict(status=status,empirical_relation=empirical,nominal_difference=nominal,
+        probability_differences=intervals,pareto_confidence_family='registered paired comparisons' if paired else 'registered rates',
+        worst_confidence_family='registered rates; separate family from paired comparisons',
+        worst_difference=min(candidate['regimes'][l]['probability'] for l in laws)-min(reference['regimes'][l]['probability'] for l in laws),
+        worst_interval=[c[0]-b[1],c[1]-b[0]])
+
+
 def report(registry):
     cfg=spec();ROOT.mkdir(parents=True,exist_ok=True);records=[];receipts=[];missing=[]
     for index,tag in enumerate(registry['validations']):
         try:
             folder,receipt=fetch(tag,f'output/objectives-validation-{index}');record=read_json(folder/'validation.json')
             records.append(record);receipts.append(dict(tag=tag,**receipt))
+            (ROOT/'inputs'/record['instance']).mkdir(parents=True,exist_ok=True)
+            shutil.copyfile(folder/'problem.json',ROOT/'inputs'/record['instance']/'problem.json')
             for plan in record['plans']:
                 shutil.copytree(folder/'plans'/plan['plan_sha256'],ROOT/'plans'/'current'/record['instance']/plan['plan_sha256'],
                     ignore=shutil.ignore_patterns('F1','F2'),dirs_exist_ok=True)
         except Exception as error:missing.append(dict(tag=tag,error=str(error)))
     complete=(len(records)==3 and {r['instance'] for r in records}==set(cfg['instances']) and not missing
               and all(r['status']=='PASS' for r in records))
+    if records and any(r['seal']!=records[0]['seal'] for r in records):raise ValueError('different sealed plan families')
+    expected_tags=set(registry['generations'])
+    if len(expected_tags)!=3:raise ValueError('all three generation releases required in report registry')
+    for record in records:
+        if {g['tag'] for g in record['seal']['generations']}!=expected_tags:
+            raise ValueError('validation belongs to a different generation registry')
+        generation=record['generation']
+        if generation['spec']!=cfg or generation['implementation']!=fingerprint():
+            raise ValueError('validation belongs to different protocol or participant versions')
+        if len(generation['results'])!=6 or any(c['result']['status']!='PASS' or c['process']['status']!='OK'
+            or c['process']['wall_s']>cfg['search']['total_budget_s'] for c in generation['results']):
+            raise ValueError('not a complete within-budget generation matrix')
     rows=[];costs=[];catalog=[]
     for record in records:
         instance=record['instance']
         for plan in record['plans']:
-            probs={l:plan['regimes'][l]['probability'] for l in cfg['laws']}
             for alias in plan['aliases']:
                 catalog.append(dict(version='current',instance=instance,alias=alias,plan_sha256=plan['plan_sha256'],
                     file=f'plans/current/{instance}/{plan["plan_sha256"]}/schedule.json'))
@@ -237,13 +287,22 @@ def report(registry):
                     sample_scope='original E5; 512 calibration and 1024 independent test, shared deadlines'))
     csv_file('deadline-risk.csv',curves)
     allcomparisons=[dict(instance=r['instance'],**c) for r in records for c in r['comparisons']]
+    quality=[]
+    for record in records:
+        by_alias={a:p for p in record['plans'] for a in p['aliases']}
+        for comparison in record['comparisons']:
+            alias=comparison['alias'];candidate=by_alias[alias];case=alias.rsplit(':',1)[0]
+            quality.append(dict(instance=record['instance'],alias=alias,objective=comparison['objective'],
+                prefix=external_relation(candidate,by_alias[case+':prefix'],cfg['laws'],comparison['laws']),
+                full_cp=external_relation(candidate,by_alias['full_cp'],cfg['laws'])))
+    write_json(ROOT/'external-quality.json',quality)
     same=sum(c['identical_to_prefix'] for c in allcomparisons)
     confirmed_worst=[c for c in allcomparisons if c['objective']=='worst_regime' and c['worst_simultaneous95'] and c['worst_simultaneous95'][0]>0]
     result=dict(status='COMPLETE' if complete else 'PARTIAL',registered_generations=18,
         completed_generations=len(costs),selected_comparisons=len(allcomparisons),identical_to_prefix=same,
         confirmed_worst_improvements=len(confirmed_worst),missing=missing,comparisons=allcomparisons,
         historical_exports=sum(c['version']=='historical-v1' for c in catalog),current_catalog_entries=sum(c['version']=='current' for c in catalog),
-        receipts=receipts,legacy=legacy,validation=records,profile=cfg)
+        receipts=receipts,legacy=legacy,validation=records,external_quality=quality,profile=cfg)
     write_json(ROOT/'RESULT.json',result)
     lines=['# Производственные краш-тесты и генерация планов','',
         f'Текущая дополнительная проверка: **{result["status"]}**. Выполнено {len(costs)}/18 генераций.',
@@ -252,14 +311,16 @@ def report(registry):
         '', '## Что показали исходные краш-тесты', '',
         'Сроки служат критериями, не отменяют работу. По каждой траектории оцениваются C0, 1,1 C0 и 1,25 C0. Неустановленный окончательный исход к остановке остаётся неизвестным; незавершение к сроку означает нарушение срока. Вычислительный тайм-аут учитывается отдельно.',
         '', '| Задача | Режим | Успех к C0, % | К 1,1 C0, % | К 1,25 C0, % |', '|---|---|---:|---:|---:|']
-    for instance in cfg['instances']:
+    for instance in sorted({r['instance'] for r in curves}):
         for law in cfg['laws']:
             by={r['deadline_percent_C0']:r for r in curves if r['instance']==instance and r['law']==law}
             lines.append(f'| {instance} | {law} | '+ ' | '.join(f'{100*by[d]["holdout_success"]:.2f}' for d in (100,110,125))+' |')
     lines+=['', 'Это результаты исходного списка операций: даже допустимый без поломок план может часто срывать срок. Таблица показывает, какой запас по сроку меняет риск при каждом режиме отказов. Полные данные и оценка по отдельному моделируемому банку — в `deadline-risk.csv`.',
+        '', 'В этой серии F2 часто даёт большую вероятность готовности всей партии, чем F1. Одинаковая статистика отдельного станка не задаёт риск всего плана: совпадающие во времени остановки и разнесённые остановки по-разному проходят через технологические зависимости. Это результат именно этих двух законов, а не универсальное утверждение о пользе общих отказов.',
         '', 'E1–E5 выполнены: 30 720 стохастических траекторий DES/DAG и заранее выделенные 2560 проверок S1, без расхождений исполнения. Проверки вычислителя включают полные свидетели, 65 координат с восемью неизвестными и промышленную схему до 1454 координат. При полном наблюдении SIMPAT R совпадает со счётчиком успешных виртуальных прогонов, что проверяет корректность агрегации; дополнительная предсказательная сила из этого не следует.',
         '', 'В E5 средняя абсолютная разница прогноза и независимой тестовой частоты при том же законе — 2,43 п.п. для F1 и 1,75 п.п. для F2. Перенос оценки F1 на F2 даёт 20,71 п.п.: предположение о характере поломок существенно. Это не ошибка прямого моделирования F2. При искусственно неполной регистрации метод возвращает границы вместо необоснованной точечной уверенности; они могут быть широкими.',
         '', 'E6: исходная серия при 300 с остаётся PARTIAL (39/41 условий, 24 тайм-аута). Отдельные повторы с пределом 1200 с завершили оставшиеся два условия. Сокращение файла представления не означает такое же ускорение подготовки или полного расчёта; положительное ускорение не было требованием E6.',
+        '', 'Аудит разделил два разных пути сокращения. Проекция после построения полной модели оставила почти всё время подготовки. Прямое сокращённое построение в отдельной паре на одном runner заняло 107,74 с против 240,78 с для полного, при том же точном интервале R: примерно в 2,23 раза быстрее. Это ускорение обработки готовых журналов, не всего виртуального исполнения. Исправления граничных наблюдений и терминального контракта прошли 40 квалификационных тестов; архивные результаты сохранены.',
         '', '## Генерация из условий с выбираемой целью', '',
         'Доступны минимальная номинальная длительность (`nominal`), вероятность срока в F1 (`deadline_f1`), худшая из вероятностей F1/F2 (`worst_regime`) и набор компромиссов длительности/F1/F2 (`pareto`). Поиск назначает станки и порядок операций; готовое расписание во входе этой серии отсутствует. Глобальный оптимум стохастических целей не доказан.',
         '', 'Текущие nominal и deadline_f1 проверены ранее отдельно. Здесь проверены оставшиеся worst_regime и pareto. Все варианты ниже зафиксированы до открытия нового общего банка; 6144 уникальных историй повторяются для разных планов и не умножают размер выборки. DES/DAG выполняют весь банк, исходный S1 — 128 заранее выбранных историй каждого закона/задачи. Внешняя проверка включает физический баланс и независимый результат всей партии.',
@@ -272,9 +333,10 @@ def report(registry):
     lines+=['', f'Из {len(allcomparisons)} возвращённых представителей {same} физически совпали с собственным CP-prefix. Подтверждённых улучшений худшего режима по совместным границам: {len(confirmed_worst)}. Числа, парные выигрыши/потери и границы приведены в RESULT.json; один только лучший калибровочный балл преимуществом не считается.',
         '', 'CP-prefix — фактически затраченная общая начальная часть вызова. Полный CP-план — ранее зафиксированный сильный ориентир; его исторические затраты 0,350/235,078/235,089 с для Mk01/05/10 не являются новым парным измерением. Изменение качества относительно исходного плана не приписывается новой математике: генератор использует стандартные CP-SAT и поиск с прямой оценкой сценариев.',
         '', 'Для worst_regime сравниваются оба закона. Для Pareto публикуются все калибровочно выбранные представители, без отбора по тесту. Это найденные компромиссы, не доказанный глобальный фронт. Отсутствие внешнего выигрыша относительно дешёвого prefix оставляет пользу дополнительного поиска неподтверждённой.',
+        '', 'В `external-quality.json` каждому возвращённому представителю сопоставлены prefix и полный CP. Отдельно записаны наблюдаемые отношения точек и подтверждённые совместными границами доминирование, проигрыш или компромисс. INCONCLUSIVE означает недостаток оснований для такого вывода; это не доказанное равенство. Для prefix используется заранее объявленное семейство парных сравнений, для полного CP — семейство границ вероятностей. Эти два семейства имеют отдельные 95%-е гарантии.',
         '', 'Ранее проверенный deadline_f1 совпал с коротким CP-prefix в 7 из 9 случаев; для двух остальных подтверждённого выигрыша не получено. Полный CP был лучше по F1 на Mk10. Поэтому оснований заявлять преимущество добавочного поиска над сильными простыми средствами пока нет.',
         '', '## Воспроизводимые результаты и планы', '',
-        '`catalog.csv` связывает каждый возвращённый вариант с настоящими schedule.json и schedule.csv. `plans/historical-v1/` содержит все старые цели с исторической версией; `plans/current/` — текущие результаты и контроли. Одинаковые физические планы могут соответствовать нескольким целям. `plans.csv` содержит внешние вероятности и совместные границы; `costs.csv` — полное время вызова, наблюдённое окно CP-prefix, завершённые/ошибочные/оборванные оценки. Подготовка окружения и весь runner-бюджет сохранены в provenance/budget.json и workflow logs.',
+        '`catalog.csv` связывает каждый возвращённый вариант с настоящими schedule.json и schedule.csv. `plans/historical-v1/` содержит все старые цели с исторической версией; `plans/current/` — текущие результаты и контроли. `inputs/` содержит исходные условия без расписания. Одинаковые физические планы могут соответствовать нескольким целям. `plans.csv` содержит внешние вероятности и совместные границы; `costs.csv` — полное время вызова, наблюдённое окно CP-prefix, завершённые/ошибочные/оборванные оценки. Подготовка окружения и весь runner-бюджет сохранены в provenance/budget.json и workflow logs.',
         '', f'Экспортировано исторических представителей: {result["historical_exports"]}. Техническая завершённость, физическая допустимость, внешнее качество и вычислительная цена сообщаются раздельно. Результаты относятся к перечисленным синтетическим законам и задачам; перенос на конкретное производство требует его операций и обоснованных условий поломок.']
     (ROOT/'REPORT_RU.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
 
