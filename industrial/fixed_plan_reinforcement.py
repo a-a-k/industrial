@@ -55,8 +55,10 @@ def build():
         'TSFG_TEST_EVIDENCE':str(preflight/'provenance/tsfg-provenance.json')})
     write_json(ROOT/'preparation.json',dict(common_environment_s=common,go_setup_s=go,scalar_compile_s=scalar,
         public_compile=public,s1_source=source,s1_compile=s1,preflight_evidence_retrieval_s=evidence_s,
-        participant_first_use_s=dict(D=common+go+source['wall_s']+evidence_s+s1['wall_s'],
-            DAG=common+scalar+public['wall_s']),
+        participant_first_use_s={'D':go+source['wall_s']+evidence_s+s1['wall_s'],
+            'D-DAG':scalar+public['wall_s'],'T':scalar+public['wall_s'],
+            'S':scalar,'G':scalar,'N':0.,'L':0.},
+        common_setup_scope='campaign transfer and report/statistics dependencies, not required by the stdlib-only decision workers; disclosed separately',
         compiler_command=command,scalar_sha256=digest(Path('build/risk-dag').read_bytes()),**stamp()))
     if any(p['status']!='OK' for p in (public,source,s1)):raise ValueError('participant preparation failed')
 
@@ -160,20 +162,48 @@ class Scorer:
         return labels
 
 
+def simple_control(data,law,method,root,started):
+    import resource
+    t=time.perf_counter()
+    if method=='L':
+        edits,stats=catalogue(data);selected=min(edits,key=edit_key);plan=materialize(data,selected)
+        catalogue_sha=digest(canonical(edits));write_json(root/'catalogue.json',dict(edits=edits,stats=stats))
+    else:
+        selected=dict(id='none',kind='none',machines=[],operations=[],cmax=data['planned_makespan'],edit_count=0,
+            structure_sha256=plan_key(data));plan=data;stats=None;catalogue_sha=None
+    write_json(root/'schedule.json',plan);write_json(root/'diff.json',diff(data,plan))
+    usage=resource.getrusage(resource.RUSAGE_SELF)
+    write_json(root/'answer.json',dict(status='PASS',method=method,law=law,instance=data['dataset_id'],selected=selected,
+        calibration_successes=None,baseline_successes=None,samples=0,scores={},sensitivity=[],diagnosis=None,
+        early_stop='pure nominal decision; no calibration required' if method=='L' else 'unchanged input; no calibration or catalogue required',
+        catalogue_sha256=catalogue_sha,scenario_sha256=None,schedule_sha256=digest(canonical(plan)),
+        phases=dict(catalogue_s=time.perf_counter()-t if method=='L' else 0.),internal_wall_s=time.perf_counter()-started,
+        native_calls=0,catalogue_stats=stats,implementation=fingerprint(),spec=spec(),
+        cpu_s=usage.ru_utime+usage.ru_stime,worker_ru_maxrss_kib=usage.ru_maxrss,children_ru_maxrss_kib=0,
+        memory_scope='individual worker process peak'))
+
+
 def worker(input_path,law,method,folder):
     import resource
     started=time.perf_counter();cfg=spec();root=Path(folder);root.mkdir(parents=True,exist_ok=True)
     data=read_json(input_path);deadline=data['nominal_makespan']*11//10;phases={}
+    if method in ('N','L'):return simple_control(data,law,method,root,started)
     t=time.perf_counter();edits,catstats=catalogue(data);phases['catalogue_s']=time.perf_counter()-t
     write_json(root/'catalogue.json',dict(edits=edits,stats=catstats))
     t=time.perf_counter();histories=scenarios(data,law,cfg['calibration_split'],cfg['calibration_samples'])
     write_json(root/'scenarios.json.gz',histories);phases['scenario_generation_s']=time.perf_counter()-t
     engine='tsfg' if method=='D' else 'dag'
-    t=time.perf_counter();original,diagnosis=baseline(data,histories,root/'baseline',engine,deadline)
-    phases['baseline_trace_diagnosis_s']=time.perf_counter()-t
-    scores={'none':sum(original.values())};scorer=Scorer(root,data,deadline,engine);sensitivity=[]
+    scorer=Scorer(root,data,deadline,engine);t=time.perf_counter()
+    if method in ('D','D-DAG','T'):original,diagnosis=baseline(data,histories,root/'baseline',engine,deadline)
+    else:
+        values=scorer.evaluate(data,histories,'baseline-scalar');original={s['id']:v for s,v in zip(histories,values)};diagnosis=None
+    phases['baseline_trace_or_scalar_s']=time.perf_counter()-t
+    scores={'none':sum(original.values())};sensitivity=[]
     t=time.perf_counter();nonempty=[e for e in edits if e['kind']!='none'];byid={e['id']:e for e in edits}
-    if method in ('D','D-DAG'):
+    early_stop=None
+    if scores['none']==len(histories):
+        order=[];early_stop='all calibration batches succeed; no risk count can beat no-op and ties prefer no-op'
+    elif method in ('D','D-DAG'):
         failed=[s for s in histories if not original[s['id']]]
         for m in range(len(data['queues'])):
             relevant=[s for s in failed if any(k==m and a<deadline and b>0 for k,a,b in s['failures'])]
@@ -183,8 +213,6 @@ def worker(input_path,law,method,folder):
                 skipped_successful=len(histories)-len(failed),skipped_failed_without_prior_outage=len(failed)-len(relevant)))
         top=[r['machine'] for r in sorted(sensitivity,key=lambda r:(-r['rescued_failed'],r['machine']))[:2]]
         order=sorted([e for e in nonempty if set(e['machines'])&set(top)],key=edit_key)
-    elif method=='N':order=[]
-    elif method=='L':order=sorted(edits,key=edit_key)[:1]
     elif method=='S':
         load=[sum(data['operations'][i]['work'] for i in q) for q in data['queues']]
         order=sorted(nonempty,key=lambda e:(-max(Fraction(load[m],data['planned_makespan']) for m in e['machines']),
@@ -205,17 +233,16 @@ def worker(input_path,law,method,folder):
         order=sorted(nonempty,key=lambda e:(-screen[e['id']],e['edit_count'],e['cmax'],e['id']))
     else:raise ValueError('unregistered method')
     considered=[e for e in order if e['kind']!='none'][:cfg['candidate_quota']-1]
-    for e in considered:scores[e['id']]=sum(scorer.evaluate(materialize(data,e),histories,'full:'+e['id']))
+    for e in considered:
+        if method=='G':
+            scores[e['id']]=screen[e['id']]+sum(scorer.evaluate(materialize(data,e),histories[cfg['screen_samples']:],'remainder:'+e['id']))
+        else:scores[e['id']]=sum(scorer.evaluate(materialize(data,e),histories,'full:'+e['id']))
     selected=min((byid[k] for k in scores),key=lambda e:(-scores[e['id']],e['edit_count'],e['cmax'],e['id']))
-    if method=='L':
-        # Nominal-only control does not let noisy risk observations override its rule.
-        selected=min(edits,key=edit_key)
-        if selected['id'] not in scores:scores[selected['id']]=sum(scorer.evaluate(materialize(data,selected),histories,'nominal-selected'))
     phases['diagnostic_probes_screening_candidate_selection_s']=time.perf_counter()-t
     plan=materialize(data,selected);write_json(root/'schedule.json',plan);write_json(root/'diff.json',diff(data,plan))
     answer=dict(status='PASS',method=method,law=law,instance=data['dataset_id'],selected=selected,
         calibration_successes=scores[selected['id']],baseline_successes=scores['none'],samples=len(histories),
-        scores=scores,sensitivity=sensitivity,diagnosis=diagnosis,catalogue_sha256=digest(canonical(edits)),
+        scores=scores,sensitivity=sensitivity,diagnosis=diagnosis,early_stop=early_stop,catalogue_sha256=digest(canonical(edits)),
         scenario_sha256=digest(canonical(histories)),schedule_sha256=digest(canonical(plan)),
         phases=phases,internal_wall_s=time.perf_counter()-started,
         native_calls=len(scorer.calls),catalogue_stats=catstats,implementation=fingerprint(),spec=cfg)
@@ -241,6 +268,19 @@ def qualify(registry):
             if [[x for x in q if x!=i] for q in qs]!=[[x for x in q if x!=i] for q in tiny['queues']]:
                 raise ValueError('reroute changed another operation order')
         check_case(tiny,plan,e,f'tiny-{index}',checks)
+    write_json(ROOT/'tiny-input.json',tiny);policies={};policy_processes=[]
+    for method in spec()['methods']:
+        folder=ROOT/'policy-check'/method
+        process=run([sys.executable,'-m','industrial.fixed_plan_reinforcement','worker','--input',str(ROOT/'tiny-input.json'),
+            '--law','F1','--method',method,'--folder',str(folder)],spec()['process_watchdog_s'])
+        policy_processes.append(dict(method=method,process=process));write_json(ROOT/'policy-processes.json',policy_processes)
+        if process['status']!='OK':raise ValueError('full policy qualification unavailable: '+method)
+        policies[method]=read_json(folder/'answer.json')
+    for key in ('selected','scores','sensitivity','diagnosis','catalogue_sha256','scenario_sha256','schedule_sha256'):
+        if policies['D'][key]!=policies['D-DAG'][key]:raise ValueError('full policy qualification engine mismatch: '+key)
+    if any(a['samples']!=(0 if m in ('N','L') else 512) for m,a in policies.items()):raise ValueError('policy qualification denominator')
+    checks.append(dict(case='full-policies-tiny',status='PASS',methods=list(policies),samples=512,
+        selected={m:a['selected']['id'] for m,a in policies.items()}))
     base,provenance=input_plan(registry,'Mk10');edits,stats=catalogue(base)
     chosen=[edits[0]]
     for kind in ('swap','move'):
@@ -291,7 +331,7 @@ def train(registry,instance,law):
         left,right=answers['D'],answers['D-DAG']
         for key in ('selected','scores','sensitivity','catalogue_sha256','scenario_sha256','schedule_sha256','diagnosis'):
             if left[key]!=right[key]:raise ValueError('identical diagnostic policy engine mismatch: '+key)
-        if len({a['catalogue_sha256'] for a in answers.values()})!=1 or len({a['scenario_sha256'] for a in answers.values()})!=1:
+        if len({a['catalogue_sha256'] for a in answers.values() if a['catalogue_sha256'] is not None})!=1 or len({a['scenario_sha256'] for a in answers.values() if a['scenario_sha256'] is not None})!=1:
             raise ValueError('method information asymmetry')
     write_json(ROOT/'training.json',dict(status=status,instance=instance,law=law,input_provenance=provenance,
         qualification_receipt=qreceipt,answers=answers,records=records,preparation=read_json(ROOT/'preparation.json'),
@@ -385,6 +425,10 @@ def validate(registry,instance,law):
 
 def report(registry):
     cfg=spec();ROOT.mkdir(parents=True,exist_ok=True);records=[];seen=set();missing=[]
+    seal_source,seal_receipt=fetch(registry['seal'],'output/local-report-seal');global_seal=read_json(seal_source/'seal.json')
+    if global_seal['status']!='SEALED' or global_seal['spec']!=cfg or global_seal['implementation']!=fingerprint():
+        raise ValueError('one registered global seal required for report')
+    sealed_records={(r['instance'],r['law']):r for r in global_seal['conditions']}
     expected={(i,l) for i in cfg['instances'] for l in cfg['laws']}
     for index,tag in enumerate(registry.get('validations',[])):
         try:
@@ -392,6 +436,8 @@ def report(registry):
             key=(r['instance'],r['law'])
             if r['status']!='PASS' or r['implementation']!=fingerprint() or r['spec']!=cfg or key in seen:
                 raise ValueError('incomplete or changed validation')
+            if (r['seal_release']!=registry['seal'] or r['seal_receipt']['archive_sha256']!=seal_receipt['archive_sha256']
+                    or canonical(r['training'])!=canonical(sealed_records[key])):raise ValueError('mixed or changed global decisions seal')
             seen.add(key);records.append(dict(validation_release=tag,validation_receipt=receipt,**r))
         except Exception as error:missing.append(dict(release=tag,error=str(error)))
     missing.extend(dict(instance=i,law=l,error='required acceptance condition unavailable') for i,l in sorted(expected-seen))
@@ -401,11 +447,12 @@ def report(registry):
         preparation=r['training']['preparation']['participant_first_use_s']
         nominal=r['training']['input_provenance']['input']['nominal_generation']
         nominal_s=(nominal['process'] if nominal['new_optimizer_execution'] else nominal['historical_generation']['process'])['wall_s']
-        def full_cost(method):return processes[method]['wall_s']+preparation['D' if method=='D' else 'DAG']+nominal_s
+        def full_cost(method):return processes[method]['wall_s']+preparation[method]
         for method,answer in r['methods'].items():
             training=r['training']['answers'][method];p=processes[method]
             costs.append(dict(instance=r['instance'],law=r['law'],method=method,complete_process_wall_s=p['wall_s'],
-                first_use_wall_s=full_cost(method),common_initial_nominal_generation_s=nominal_s,
+                first_use_from_fixed_plan_wall_s=full_cost(method),additional_total_with_initial_plan_wall_s=full_cost(method)+nominal_s,
+                common_initial_nominal_generation_s=nominal_s,
                 nominal_cost_scope='historical unpaired common input cost' if not nominal['new_optimizer_execution'] else 'measured common input generation',
                 cpu_s=training['cpu_s'],catalogue_s=training['phases']['catalogue_s'],native_calls=training['native_calls'],
                 worker_ru_maxrss_kib=training['worker_ru_maxrss_kib'],children_ru_maxrss_kib=training['children_ru_maxrss_kib']))
@@ -416,11 +463,12 @@ def report(registry):
             edit=r['training']['answers']['D']['selected']['id'],D_wall_s=processes['D']['wall_s'],
             D_DAG_wall_s=processes['D-DAG']['wall_s'],G_wall_s=processes['G']['wall_s']))
         if effect['outer95'][0]>0:practical.append(dict(instance=r['instance'],law=r['law'],contrast=effect))
-        for b in ('L','S','T','G'):
+        for b in ('S','T','G'):
             contrast=r['paired_D_against'][b]
             for implementation in ('D','D-DAG'):
-                same=r['methods'][b]['plan']==d['plan'];cheaper=full_cost(implementation)<full_cost(b)
-                better=contrast['outer95'][0]>0 and full_cost(implementation)<=1.25*full_cost(b)
+                same=r['methods'][b]['plan']==d['plan']
+                cheaper=full_cost(implementation)<full_cost(b) and processes[implementation]['wall_s']<processes[b]['wall_s']
+                better=contrast['outer95'][0]>0 and full_cost(implementation)<=1.25*full_cost(b) and processes[implementation]['wall_s']<=1.25*processes[b]['wall_s']
                 if better or (same and cheaper):comparative.append(dict(instance=r['instance'],law=r['law'],implementation=implementation,
                     baseline=b,reason='better external outcome within 1.25x complete measured effort' if better else 'identical physical plan at lower complete measured effort'))
     for name,values in (('summary.csv',rows),('costs.csv',costs)):
@@ -429,6 +477,7 @@ def report(registry):
                 writer=csv.DictWriter(stream,fieldnames=list(values[0]));writer.writeheader();writer.writerows(values)
     result=dict(status='COMPLETE' if not missing and seen==expected else 'PARTIAL',conditions=records,
         completed_conditions=len(seen),required_conditions=20,missing=missing,summary=rows,costs=costs,
+        seal_release=registry['seal'],seal_receipt=seal_receipt,
         confirmed_practical_conditions=practical,measured_comparative_pairs=comparative,
         scope='synthetic fixed-plan crash tests; no real-plant validation and no commercial-product measurements',
         confidence_family='100 paired differences; four one-sided CP bounds each alpha=.000125',
