@@ -3,8 +3,8 @@
 The primary engineering task is to crash-test a fixed technologist-approved
 plan, explain weak places, and validate targeted corrections. The
 [fixed-plan diagnostic protocol](docs/FIXED_PLAN_DIAGNOSTICS_RU.md) separates
-observed delays, causal sensitivity and feasible local changes. Archived Mk10
-is a research example; causal benefits of corrections are not yet established.
+observed delays, causal sensitivity and feasible local changes. The benchmark
+plans are research examples, not schedules from a real plant.
 The [first diagnostic report](results/fixed-plan-diagnostics/REPORT_RU.md)
 contains the unchanged plan's observed waits, affected operations and an example
 waiting chain. It does not select a replacement schedule.
@@ -16,6 +16,16 @@ Detailed reports include the physical operation/machine edit, complete schedule
 files and external whole-batch effects. Commercial products are not measured.
 The [ten frozen input plans](results/fixed-plan-inputs/REPORT_RU.md) include
 actual JSON/CSV schedules, original constraints and sealed source provenance.
+
+The [complete twenty-condition report](results/fixed-plan-reinforcement/REPORT_RU.md)
+records 20/20 independently validated conditions, seven unchanged decisions and
+13 local edits. None of the edits has a confirmed production improvement; all
+100 preregistered comparison intervals include zero. The diagnostic strategy's
+advantage over the strongest open controls is **not established**. All concrete
+edits, schedules, waiting chains, confidence bounds and complete costs are retained.
+The [competitor classes](results/fixed-plan-reinforcement/COMPARISON_CLASSES_RU.md)
+separate public manufacturer claims from the measured open implementations;
+commercial products were not run.
 
 The [manufacturing report](results/objectives/REPORT_RU.md) presents whole-batch
 deadline risk under machine failures, schedules generated from raw conditions,

@@ -1,0 +1,4 @@
+operation,before_machine,before_planned_end,before_planned_start,before_work,after_machine,after_planned_end,after_planned_start,after_work
+50,0,9600,8600,1000,0,8600,7600,1000
+51,8,10700,9600,1100,8,9800,8700,1100
+189,0,8600,7600,1000,0,9600,8600,1000

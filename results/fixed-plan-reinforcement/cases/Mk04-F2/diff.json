@@ -1,0 +1,1 @@
+{"operations":[{"after":{"machine":4,"planned_end":4000,"planned_start":3300,"work":700},"before":{"machine":3,"planned_end":3800,"planned_start":3300,"work":500},"operation":32}],"queues":[{"after":[47,71,84,17,37,57,18,83,3,88,65,25,70],"before":[47,71,84,17,37,57,18,83,32,3,88,65,25,70],"machine":3},{"after":[42,48,80,81,32,6],"before":[42,48,80,81,6],"machine":4}]}
