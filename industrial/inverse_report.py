@@ -147,12 +147,20 @@ def report(registry):
     csv_file(ROOT/'campaign_job_costs_at_report_start.csv',budget['jobs'])
     complete=not missing and seen==expected and len(all_rows)==seal['configurations']
     all_feasible=complete and all(s['frontier_options']>0 for s in summaries)
+    interpretation=dict(
+        baseline_certified_feasible_cases=sum(s['baseline_status']=='FEASIBLE' for s in summaries),
+        baseline_certified_infeasible_cases=sum(s['baseline_status']=='INFEASIBLE' for s in summaries),
+        baseline_unresolved_cases=sum(s['baseline_status']=='UNRESOLVED' for s in summaries),
+        menu_minimality_confirmed_cases=sum(s['frontier_minimum_proved']>0 for s in summaries),
+        menu_minimality_unresolved_cases=sum(s['frontier_options']>0 and s['frontier_minimum_proved']==0 for s in summaries),
+        frontier_options_with_plan_changes=sum(c['reassigned_operations']>0 or c['queue_inversions']>0 for c in frontier_rows),
+        conditions_by_status={status:sum(c['classification']==status for c in all_rows) for status in ('FEASIBLE','INFEASIBLE','UNRESOLVED')})
     result=dict(technical_status='COMPLETE' if complete else 'PARTIAL',
         functional_status='ALL_CASES_HAVE_CERTIFIED_CONDITIONS' if all_feasible else 'TARGET_NOT_CERTIFIED_ALL_CASES',
         required_cases=20,completed_cases=len(seen),required_configurations=seal['configurations'],completed_configurations=len(all_rows),
         confidence_family=dict(error=.05,one_sided_alpha=seal['one_sided_alpha'],bounds=2*seal['configurations']),
         summaries=summaries,frontier=frontier_rows,certifications=records,missing=missing,seal_release=registry['seal'],seal_receipt=receipt,
-        previous_comparative_claim='NOT_ESTABLISHED',global_optimality_claimed=False,real_plant_validation=False,
+        previous_comparative_claim='NOT_ESTABLISHED',global_optimality_claimed=False,real_plant_validation=False,interpretation=interpretation,
         execution_totals=dict(production_scalar_samples=sum(c['samples'] for r in records for c in r['conditions']),
             risk_dag_samples=sum(c['samples'] for r in records for c in r['conditions']),
             s1_scalar_samples=sum(c['s1_scalar_samples'] for r in records for c in r['conditions']),
@@ -165,6 +173,16 @@ def report(registry):
         '', 'Результат — конкретные планы и требования к среднему ремонту при прежних станках, партии и сроке. '
         'У показанных подтверждённых вариантов общая нижняя граница вероятности выпуска не ниже95%. '
         'Это условие заданной синтетической модели; достижимость ремонта и цены на реальном предприятии неизвестны.',
+        '', f'Исходные условия уже подтверждённо проходят цель в {interpretation["baseline_certified_feasible_cases"]} случаях; '
+        f'подтверждённо не проходят в {interpretation["baseline_certified_infeasible_cases"]}; '
+        f'остаются неопределёнными в {interpretation["baseline_unresolved_cases"]}. '
+        f'Минимальность усиления внутри меню подтверждена в {interpretation["menu_minimality_confirmed_cases"]} случаях; '
+        f'в {interpretation["menu_minimality_unresolved_cases"]} найдены достаточные условия без доказанного минимума.',
+        ('Все варианты, недоминируемые среди подтверждённо допустимых, сохраняют исходный план. '
+        'Проверенные изменения расписаний не позволили ослабить подтверждённые требования к ремонту на выбранной сетке. '
+        'Получены требования к среднему ремонту для уже заданных планов; это не доказательство бесполезности любого перепланирования.'
+        if complete and interpretation['frontier_options_with_plan_changes']==0 else
+        'В подробностях показаны все недоминируемые среди подтверждённо допустимых сочетания изменений плана и ремонта.'),
         '', 'Для быстрого прочтения:100% ремонта в следующей таблице означает, что исходные план и ремонт уже проходят цель. '
         '50% означает подтверждённый вариант с тем же планом и вдвое меньшим средним экспоненциальной длительности ремонта ДО округления. '
         'Из-за округления вверх фактическое среднее не обязано уменьшиться ровно вдвое. '
