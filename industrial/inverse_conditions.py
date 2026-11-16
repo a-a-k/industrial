@@ -164,10 +164,10 @@ def qualify():
 
 
 def catalogue(instance,registry):
-    cfg=spec();ROOT.mkdir(parents=True,exist_ok=True);base,provenance=base_plan(instance)
+    request_started=time.perf_counter();cfg=spec();ROOT.mkdir(parents=True,exist_ok=True);base,provenance=base_plan(instance)
     qsource,qreceipt=fetch(registry['qualification'],'output/inverse-qualification');q=read_json(qsource/'qualification.json')
     if q['status']!='PASS' or q['implementation']!=fingerprint() or q['spec']!=cfg:raise ValueError('unqualified inverse implementation')
-    save_plan(ROOT/'base',base);started=time.perf_counter();records=[];plans={}
+    save_plan(ROOT/'base',base);started=time.perf_counter();setup_s=started-request_started;records=[];plans={}
     def add(plan,origin):
         plan=normalize(plan);d=distance(base,plan);k=identity(plan)
         if plan['planned_makespan']>11*base['nominal_makespan']//10:raise ValueError('healthy candidate misses original deadline')
@@ -191,9 +191,16 @@ def catalogue(instance,registry):
             plan=read_json(folder/'schedule.json')
             if distance(base,plan)['total']>cap:raise ValueError('physical edit cap exceeded after normalization')
             add(plan,label)
-    write_json(ROOT/'catalogue.json',dict(status='PASS',instance=instance,base_provenance=provenance,qualification_receipt=qreceipt,
-        plans=list(plans.values()),attempts=records,catalogue_wall_s=time.perf_counter()-started,
-        implementation=fingerprint(),spec=cfg,**stamp()))
+    record=dict(status='IN_PROGRESS',instance=instance,base_provenance=provenance,qualification_receipt=qreceipt,
+        plans=list(plans.values()),attempts=records,input_and_qualification_retrieval_s=setup_s,
+        candidate_family_wall_s=time.perf_counter()-started,catalogue_wall_s=time.perf_counter()-request_started,
+        implementation=fingerprint(),spec=cfg,**stamp())
+    write_json(ROOT/'catalogue.json',record)
+    record['candidate_family_wall_s']=time.perf_counter()-started
+    record['catalogue_wall_s']=time.perf_counter()-request_started
+    record['status']='BUDGET_EXCEEDED' if record['candidate_family_wall_s']>cfg['candidate_family_budget_s'] else 'PASS'
+    write_json(ROOT/'catalogue.json',record)
+    if record['status']!='PASS':raise TimeoutError('complete candidate construction exceeded family budget')
 
 
 def seal(registry):
@@ -248,7 +255,8 @@ def certify(instance,law,registry):
                 raw_mean_repair_ticks=.1*base['nominal_makespan']*rho,nominal=plan['planned_makespan'],deadline=deadline,
                 successes=k,samples=n,probability=k/n,lower=lo,upper=hi,status=status,one_sided_alpha=alpha,
                 analytic_guaranteed_successes=external['sufficient_success_count'],analytic_necessary_failures=external['necessary_failure_count'],
-                analytic_bounds=[external['sufficient_success_count']/n,1-external['necessary_failure_count']/n],
+                empirical_analytic_bounds=[external['sufficient_success_count']/n,1-external['necessary_failure_count']/n],
+                analytic_bounds_scope='bounds on this sampled bank frequency, not confidence bounds on the true probability',
                 analytic_mismatches=0,shared_exact_checks=external['shared_exact_checks'],
                 windows=[dict(w,violations=c) for w,c in zip(a['windows'],external['window_failure_counts'])],
                 production_process=process,dag_calls=scorer.calls,s1_calls=scorer_s1.calls,

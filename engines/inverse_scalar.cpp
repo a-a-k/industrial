@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <fstream>
+#include <sstream>
 #include <sys/resource.h>
 
 static Tick down_time(const std::vector<Interval>& down,Tick a,Tick b) {
@@ -67,11 +68,17 @@ int main(int argc,char** argv) {
             times.push_back(issued ? json(last):json(nullptr));sufficient.push_back(guaranteed);necessary.push_back(impossible);
         }
         rusage usage{};getrusage(RUSAGE_SELF,&usage);
+        std::ifstream status("/proc/self/status");std::string line;std::uint64_t high_water=0;
+        while(std::getline(status,line)) if(line.rfind("VmHWM:",0)==0) {
+            std::istringstream value(line.substr(6));std::uint64_t kib=0;value>>kib;high_water=kib*1024;
+        }
+        if(!high_water) throw std::runtime_error("Post-exec VmHWM unavailable");
         json answer={{"sample_count",histories.size()},{"finished_count",successes},{"finished_at",times},
             {"necessary_failure",necessary},{"sufficient_success",sufficient},{"capacity_failure_count",capacity_count},
             {"necessary_failure_count",necessary_count},{"sufficient_success_count",sufficient_count},
             {"window_failure_counts",window_counts},{"shared_exact_checks",shared_count},{"engine",name},
-            {"analytic_mismatches",0},{"VmHWM_bytes",static_cast<std::uint64_t>(usage.ru_maxrss)*1024},
+            {"analytic_mismatches",0},{"VmHWM_bytes",high_water},
+            {"cpu_s",usage.ru_utime.tv_sec+usage.ru_utime.tv_usec/1e6+usage.ru_stime.tv_sec+usage.ru_stime.tv_usec/1e6},
             {"wall_s",std::chrono::duration<double>(std::chrono::steady_clock::now()-begin).count()}};
         std::ofstream out(argv[4]);if(!out) throw std::runtime_error("Cannot save scalar production census");out<<answer.dump()<<'\n';
         return 0;
