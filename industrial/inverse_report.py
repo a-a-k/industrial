@@ -79,6 +79,8 @@ def report(registry):
         case=ROOT/'cases'/(i+'-'+l);case.mkdir(parents=True)
         base=read_json(source/i/'base/schedule.json');base_key=identity(base)
         original=next(c for c in conditions if c['plan']==base_key and c['rho']==1)
+        unchanged_feasible=[c for c in feasible if c['plan']==base_key]
+        unchanged=max(unchanged_feasible,key=lambda c:c['rho']) if unchanged_feasible else None
         rows=[row(c) for c in sorted(conditions,key=lambda c:(cost(c),c['plan']))];all_rows.extend(rows);csv_file(case/'conditions.csv',rows)
         local_front=[]
         for c in frontier:
@@ -91,7 +93,12 @@ def report(registry):
         recommendations.extend(local_front)
         summary=dict(instance=i,law=l,registered_conditions=len(conditions),certified_feasible=len(feasible),
             certified_infeasible=sum(c['status']=='INFEASIBLE' for c in conditions),unresolved=sum(c['status']=='UNRESOLVED' for c in conditions),
-            baseline_probability=original['probability'],baseline_lower=original['lower'],baseline_status=original['status'],
+            baseline_probability=original['probability'],baseline_lower=original['lower'],baseline_upper=original['upper'],baseline_status=original['status'],
+            largest_certified_repair_multiplier_unchanged=unchanged['rho'] if unchanged else None,
+            unchanged_certified_probability=unchanged['probability'] if unchanged else None,
+            unchanged_certified_lower=unchanged['lower'] if unchanged else None,
+            original_raw_mean_repair=original['raw_mean_repair_ticks']/100,
+            unchanged_certified_raw_mean_repair=unchanged['raw_mean_repair_ticks']/100 if unchanged else None,
             frontier_options=len(frontier),frontier_minimum_proved=sum(v['minimum_proved_in_menu'] for v in local_front))
         summaries.append(summary)
         cost_rows.append(dict(instance=i,law=l,certification_request_wall_s=r['wall_s'],
@@ -146,6 +153,10 @@ def report(registry):
         confidence_family=dict(error=.05,one_sided_alpha=seal['one_sided_alpha'],bounds=2*seal['configurations']),
         summaries=summaries,frontier=frontier_rows,certifications=records,missing=missing,seal_release=registry['seal'],seal_receipt=receipt,
         previous_comparative_claim='NOT_ESTABLISHED',global_optimality_claimed=False,real_plant_validation=False,
+        execution_totals=dict(production_scalar_samples=sum(c['samples'] for r in records for c in r['conditions']),
+            risk_dag_samples=sum(c['samples'] for r in records for c in r['conditions']),
+            s1_scalar_samples=sum(c['s1_scalar_samples'] for r in records for c in r['conditions']),
+            full_trace_samples_per_engine=sum(c['full_trace_samples'] for r in records for c in r['conditions'])),
         report_source_sha256=digest(Path('industrial/inverse_report.py').read_bytes()),implementation=fingerprint(),spec=cfg,**stamp())
     write_json(ROOT/'RESULT.json',result)
     lines=['# Условия выполнения партии с вероятностью не ниже95%','',
@@ -154,10 +165,16 @@ def report(registry):
         '', 'Результат — конкретные планы и требования к среднему ремонту при прежних станках, партии и сроке. '
         'У показанных подтверждённых вариантов общая нижняя граница вероятности выпуска не ниже95%. '
         'Это условие заданной синтетической модели; достижимость ремонта и цены на реальном предприятии неизвестны.',
-        '', '| Задача | Закон | Исходная частота вовремя | Подтверждённых вариантов | Вариантов Парето | Минимальных внутри меню | Подробности |',
-        '|---|---|---:|---:|---:|---:|---|']
-    for s in summaries:lines.append(f'| {s["instance"]} | {s["law"]} | {100*s["baseline_probability"]:.2f}% | {s["certified_feasible"]} | '
-        f'{s["frontier_options"]} | {s["frontier_minimum_proved"]} | [Условия и расписания](cases/{s["instance"]}-{s["law"]}/REPORT_RU.md) |')
+        '', 'Для быстрого прочтения:100% ремонта в следующей таблице означает, что исходные план и ремонт уже проходят цель. '
+        '50% означает подтверждённый вариант с тем же планом и вдвое меньшим средним временем ремонта. '
+        'Это самый мягкий подтверждённый уровень сетки при исходном плане; дополнительные варианты с правками расписания — в подробностях. '
+        'Минимальность не следует из одного подтверждённого варианта и проверяется отдельно.',
+        '', '| Задача | Закон | Исходная частота вовремя | Средний ремонт от исходного без правок плана | Подтверждённых вариантов | Вариантов Парето | Минимальных внутри меню | Подробности |',
+        '|---|---|---:|---:|---:|---:|---:|---|']
+    for s in summaries:
+        repair='не подтверждено' if s['largest_certified_repair_multiplier_unchanged'] is None else f'{100*s["largest_certified_repair_multiplier_unchanged"]:g}%'
+        lines.append(f'| {s["instance"]} | {s["law"]} | {100*s["baseline_probability"]:.2f}% | {repair} | {s["certified_feasible"]} | '
+            f'{s["frontier_options"]} | {s["frontier_minimum_proved"]} | [Условия и расписания](cases/{s["instance"]}-{s["law"]}/REPORT_RU.md) |')
     lines+=['', 'Подбор использует сильный стандартный CP/DAG как основной инструмент. Предыдущее сравнительное преимущество '
         'S1/SIMPAT остаётся NOT_ESTABLISHED; этот расчёт не переписывает отрицательные результаты прошлой серии.',
         'Все планы и уровни ремонта были зафиксированы до нового банка. Для каждого сочетания независимый DES и прямой DAG '
