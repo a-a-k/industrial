@@ -327,14 +327,23 @@ def report(registry):
     write_json(ROOT/'external-quality.json',quality)
     same=sum(c['identical_to_prefix'] for c in allcomparisons)
     confirmed_worst=[c for c in allcomparisons if c['objective']=='worst_regime' and c['worst_simultaneous95'] and c['worst_simultaneous95'][0]>0]
+    from collections import Counter
+    process_status=Counter(p['status'] for r in records for plan in r['plans'] for law in cfg['laws']
+                           for p in plan['regimes'][law]['processes'])
+    measured={engine:sum(plan['regimes'][law][engine+'_completed'] for r in records for plan in r['plans'] for law in cfg['laws'])
+              for engine in ('des','dag','tsfg')}
     result=dict(status='COMPLETE' if complete else 'PARTIAL',registered_generations=18,
         completed_generations=len(costs),selected_comparisons=len(allcomparisons),identical_to_prefix=same,
         confirmed_worst_improvements=len(confirmed_worst),missing=missing,comparisons=allcomparisons,
         historical_exports=sum(c['version']=='historical-v1' for c in catalog),current_catalog_entries=sum(c['version']=='current' for c in catalog),
-        prior_current_exports=prior_count,receipts=receipts,legacy=legacy,validation=records,external_quality=quality,profile=cfg)
+        prior_current_exports=prior_count,distinct_plans=sum(len(r['plans']) for r in records),
+        measured_trajectories=measured,compute_status=dict(process_status),
+        execution_mismatches=sum(len(plan['regimes'][law]['mismatches']) for r in records for plan in r['plans'] for law in cfg['laws']),
+        receipts=receipts,legacy=legacy,validation=records,external_quality=quality,profile=cfg)
     write_json(ROOT/'RESULT.json',result)
     lines=['# Производственные краш-тесты и генерация планов','',
         f'Текущая дополнительная проверка: **{result["status"]}**. Выполнено {len(costs)}/18 генераций.',
+        '', f'Внешняя проверка охватила {result["distinct_plans"]} различных расписаний с контролями. Завершённые траектории: DES {measured["des"]}, DAG {measured["dag"]}, S1 {measured["tsfg"]}. Расхождения: {result["execution_mismatches"]}. Статусы вычислительных процессов: {dict(process_status)}.',
         '', 'Виртуальный краш-тест задаёт технологические операции, станки, длительности, зависимости и срок. Затем генерирует поломки, исполняет план и считает долю сценариев, в которых вся обязательная партия готова к сроку. Это расчёт риска при принятых условиях, а не обещание исхода отдельного будущего заказа и не оценка по реальной истории предприятия.',
         '', 'F1: независимые поломки станков. F2: смесь независимых и общих поломок с теми же маргинальными законами. В начале все станки исправны, среднее время работы до округления 2 C0, ремонта 0,1 C0; экспоненциальные длительности округляются вверх к шагу 0,05. Замена F1 на F2 меняет совместные отказы и требует расчёта именно для F2.',
         '', '## Что показали исходные краш-тесты', '',
