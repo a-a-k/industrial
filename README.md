@@ -5,6 +5,9 @@ plan, explain weak places, and validate targeted corrections. The
 [fixed-plan diagnostic protocol](docs/FIXED_PLAN_DIAGNOSTICS_RU.md) separates
 observed delays, causal sensitivity and feasible local changes. Archived Mk10
 is a research example; causal benefits of corrections are not yet established.
+The [first diagnostic report](results/fixed-plan-diagnostics/REPORT_RU.md)
+contains the unchanged plan's observed waits, affected operations and an example
+waiting chain. It does not select a replacement schedule.
 
 The [manufacturing report](results/objectives/REPORT_RU.md) presents whole-batch
 deadline risk under machine failures, schedules generated from raw conditions,
