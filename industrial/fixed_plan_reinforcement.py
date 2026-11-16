@@ -144,7 +144,7 @@ class Scorer:
         record=dict(label=label,samples=len(histories),scenario_sha256=digest(canonical(histories)),
             plan_sha256=digest(canonical(plan)),process=process)
         self.calls.append(record)
-        write_json(self.root/'calls.json',self.calls)
+        with (self.root/'calls.jsonl').open('ab') as stream:stream.write(canonical(record)+b'\n')
         if process['status']!='OK' or not target.exists():raise ValueError('candidate evaluation unavailable')
         result=read_json(target);times=result['finished_at']
         if len(times)!=len(histories) or result['sample_count']!=len(histories):raise ValueError('candidate census')
@@ -278,7 +278,9 @@ def train(registry,instance,law):
     q=read_json(qsource/'qualification.json')
     if q['status']!='PASS' or q['implementation']!=fingerprint() or q['spec']!=spec():raise ValueError('unqualified implementation')
     write_json(ROOT/'input.json',data);records=[];answers={}
-    for method in spec()['methods']:
+    methods=spec()['methods'];shift=((int(instance[2:])-1)*2+int(law=='F2'))%len(methods)
+    methods=methods[shift:]+methods[:shift]
+    for method in methods:
         folder=ROOT/method
         process=run([sys.executable,'-m','industrial.fixed_plan_reinforcement','worker',
             '--input',str(ROOT/'input.json'),'--law',law,'--method',method,'--folder',str(folder)],spec()['process_watchdog_s'])
@@ -396,10 +398,15 @@ def report(registry):
     rows=[];costs=[];practical=[];comparative=[]
     for r in sorted(records,key=lambda r:(r['instance'],r['law'])):
         processes={p['method']:p['process'] for p in r['training']['records']}
+        preparation=r['training']['preparation']['participant_first_use_s']
+        nominal=r['training']['input_provenance']['input']['nominal_generation']
+        nominal_s=(nominal['process'] if nominal['new_optimizer_execution'] else nominal['historical_generation']['process'])['wall_s']
+        def full_cost(method):return processes[method]['wall_s']+preparation['D' if method=='D' else 'DAG']+nominal_s
         for method,answer in r['methods'].items():
             training=r['training']['answers'][method];p=processes[method]
             costs.append(dict(instance=r['instance'],law=r['law'],method=method,complete_process_wall_s=p['wall_s'],
-                first_use_wall_s=p['wall_s']+r['training']['preparation']['participant_first_use_s']['D' if method=='D' else 'DAG'],
+                first_use_wall_s=full_cost(method),common_initial_nominal_generation_s=nominal_s,
+                nominal_cost_scope='historical unpaired common input cost' if not nominal['new_optimizer_execution'] else 'measured common input generation',
                 cpu_s=training['cpu_s'],catalogue_s=training['phases']['catalogue_s'],native_calls=training['native_calls'],
                 worker_ru_maxrss_kib=training['worker_ru_maxrss_kib'],children_ru_maxrss_kib=training['children_ru_maxrss_kib']))
         d,n=r['methods']['D'],r['methods']['N'];effect=r['paired_D_against']['N']
@@ -412,8 +419,8 @@ def report(registry):
         for b in ('L','S','T','G'):
             contrast=r['paired_D_against'][b]
             for implementation in ('D','D-DAG'):
-                same=r['methods'][b]['plan']==d['plan'];cheaper=processes[implementation]['wall_s']<processes[b]['wall_s']
-                better=contrast['outer95'][0]>0 and processes[implementation]['wall_s']<=1.25*processes[b]['wall_s']
+                same=r['methods'][b]['plan']==d['plan'];cheaper=full_cost(implementation)<full_cost(b)
+                better=contrast['outer95'][0]>0 and full_cost(implementation)<=1.25*full_cost(b)
                 if better or (same and cheaper):comparative.append(dict(instance=r['instance'],law=r['law'],implementation=implementation,
                     baseline=b,reason='better external outcome within 1.25x complete measured effort' if better else 'identical physical plan at lower complete measured effort'))
     for name,values in (('summary.csv',rows),('costs.csv',costs)):
@@ -462,4 +469,10 @@ def main():
     else:raise ValueError('unregistered stage')
 
 
-if __name__=='__main__':main()
+if __name__=='__main__':
+    try:main()
+    except Exception as error:
+        ROOT.mkdir(parents=True,exist_ok=True)
+        write_json(ROOT/'failure.json',dict(status='FAILED',stage=sys.argv[1] if len(sys.argv)>1 else None,
+            error=type(error).__name__+': '+str(error),**stamp()))
+        raise
