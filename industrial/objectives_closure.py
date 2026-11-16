@@ -327,6 +327,7 @@ def report(registry):
     write_json(ROOT/'external-quality.json',quality)
     same=sum(c['identical_to_prefix'] for c in allcomparisons)
     confirmed_worst=[c for c in allcomparisons if c['objective']=='worst_regime' and c['worst_simultaneous95'] and c['worst_simultaneous95'][0]>0]
+    pareto_confirmed=[q for q in quality if q['objective']=='pareto' and q['prefix']['status'] in ('CONFIRMED_DOMINATES','CONFIRMED_TRADEOFF')]
     from collections import Counter
     process_status=Counter(p['status'] for r in records for plan in r['plans'] for law in cfg['laws']
                            for p in plan['regimes'][law]['processes'])
@@ -335,13 +336,21 @@ def report(registry):
     result=dict(status='COMPLETE' if complete else 'PARTIAL',registered_generations=18,
         completed_generations=len(costs),selected_comparisons=len(allcomparisons),identical_to_prefix=same,
         confirmed_worst_improvements=len(confirmed_worst),missing=missing,comparisons=allcomparisons,
+        confirmed_pareto_improvements_or_tradeoffs=len(pareto_confirmed),
         historical_exports=sum(c['version']=='historical-v1' for c in catalog),current_catalog_entries=sum(c['version']=='current' for c in catalog),
         prior_current_exports=prior_count,distinct_plans=sum(len(r['plans']) for r in records),
         measured_trajectories=measured,compute_status=dict(process_status),
         execution_mismatches=sum(len(plan['regimes'][law]['mismatches']) for r in records for plan in r['plans'] for law in cfg['laws']),
         receipts=receipts,legacy=legacy,validation=records,external_quality=quality,profile=cfg)
     write_json(ROOT/'RESULT.json',result)
-    lines=['# Производственные краш-тесты и генерация планов','',
+    lines=['# Производственные краш-тесты и генерация планов','']
+    if complete:
+        largest=next(r for r in records if r['instance']=='Mk10')
+        by_alias={a:p for p in largest['plans'] for a in p['aliases']}
+        original,cp=by_alias['original']['regimes']['F1'],by_alias['full_cp']['regimes']['F1']
+        lines+=[f'Краш-тесты показали существенное различие риска у планов для одних станков и срока. На Mk10 при независимых поломках исходный план выполнил всю партию в {original["successes"]} из {original["samples"]} испытаний ({100*original["probability"]:.2f}%), ранее зафиксированный план стандартного CP-SAT — в {cp["successes"]} ({100*cp["probability"]:.2f}%). Срок {largest["deadline"]/100:g} и состав партии сохранены. Это оценка производственного риска при заданном законе, а не процент точных предсказаний для реального завода.',
+            '', f'Дополнительный поиск с учётом поломок завершён, но его преимущество над собственным коротким CP-SAT не установлено: подтверждённых улучшений худшего режима {len(confirmed_worst)}, подтверждённых Pareto-улучшений или компромиссов {len(pareto_confirmed)}. Сам факт получения разных расписаний не означает, что они лучше дешёвого контроля. Генератор, краш-тест и структурный анализ имеют отдельные результаты.', '']
+    lines+=[
         f'Текущая дополнительная проверка: **{result["status"]}**. Выполнено {len(costs)}/18 генераций.',
         '', f'Внешняя проверка охватила {result["distinct_plans"]} различных расписаний с контролями. Завершённые траектории: DES {measured["des"]}, DAG {measured["dag"]}, S1 {measured["tsfg"]}. Расхождения: {result["execution_mismatches"]}. Статусы вычислительных процессов: {dict(process_status)}.',
         '', 'Виртуальный краш-тест задаёт технологические операции, станки, длительности, зависимости и срок. Затем генерирует поломки, исполняет план и считает долю сценариев, в которых вся обязательная партия готова к сроку. Это расчёт риска при принятых условиях, а не обещание исхода отдельного будущего заказа и не оценка по реальной истории предприятия.',
@@ -371,9 +380,18 @@ def report(registry):
             lines.append(f'| {record["instance"]} | {aliases} | {plan["nominal_makespan"]/100:g} | {values[0]} | {values[1]} |')
     lines+=['', f'Из {len(allcomparisons)} возвращённых представителей {same} физически совпали с собственным CP-prefix. Подтверждённых улучшений худшего режима по совместным границам: {len(confirmed_worst)}. Числа, парные выигрыши/потери и границы приведены в RESULT.json; один только лучший калибровочный балл преимуществом не считается.',
         '', 'CP-prefix — фактически затраченная общая начальная часть вызова. Полный CP-план — ранее зафиксированный сильный ориентир; его исторические затраты 0,350/235,078/235,089 с для Mk01/05/10 не являются новым парным измерением. Изменение качества относительно исходного плана не приписывается новой математике: генератор использует стандартные CP-SAT и поиск с прямой оценкой сценариев.',
-        '', 'Для worst_regime сравниваются оба закона. Для Pareto публикуются все калибровочно выбранные представители, без отбора по тесту. Это найденные компромиссы, не доказанный глобальный фронт. Отсутствие внешнего выигрыша относительно дешёвого prefix оставляет пользу дополнительного поиска неподтверждённой.',
+        '', 'Для worst_regime сравниваются оба закона. Для Pareto публикуются все калибровочно выбранные представители, без отбора по тесту. Они недоминируемы по рабочему банку, но на новых сценариях это свойство может не сохраниться. Доказанный глобальный фронт не получен. Отсутствие внешнего выигрыша относительно дешёвого prefix оставляет пользу дополнительного поиска неподтверждённой.',
         '', 'В `external-quality.json` каждому возвращённому представителю сопоставлены prefix и полный CP. Отдельно записаны наблюдаемые отношения точек и подтверждённые совместными границами доминирование, проигрыш или компромисс. INCONCLUSIVE означает недостаток оснований для такого вывода; это не доказанное равенство. Для prefix используется заранее объявленное семейство парных сравнений, для полного CP — семейство границ вероятностей. Эти два семейства имеют отдельные 95%-е гарантии.',
         '', 'Ранее проверенный deadline_f1 совпал с коротким CP-prefix в 7 из 9 случаев; для двух остальных подтверждённого выигрыша не получено. Полный CP был лучше по F1 на Mk10. В том отдельном сравнении преимущество дополнительного поиска не установлено. Новые worst/Pareto оцениваются отдельно по приведённым выше внешним результатам.',
+        '', '## Цена нового поиска', '',
+        '| Задача | Полный вызов генератора, с | Наблюдённое окно CP-prefix, с |', '|---|---:|---:|']
+    for instance in cfg['instances']:
+        values=[r for r in costs if r['instance']==instance]
+        if values:
+            lines.append(f'| {instance} | {min(r["generation_process_s"] for r in values):.2f}–{max(r["generation_process_s"] for r in values):.2f} | '
+                         f'{min(r["observed_prefix_window_s"] for r in values):.3f}–{max(r["observed_prefix_window_s"] for r in values):.3f} |')
+    lines+=['', 'Диапазоны охватывают все шесть вызовов каждого экземпляра. Время полного процесса включает подготовку входа, CP-SAT, виртуальные оценки кандидатов, выбор и сохранение результата. Окно prefix относится к тому же вызову; отдельным standalone измерением оно не является. Общая подготовка окружения и внешняя проверка дополнительно расходуют runner-время.',
+        '', f'Ошибочных оценок кандидатов: {sum(r["failures"] or 0 for r in costs)}; оборванных по бюджету оценок: {sum(r["censored"] or 0 for r in costs)}. Причины остановки вызовов: {dict(Counter(r["stopping"] for r in costs))}. Предел итераций включает повторных кандидатов из кэша и не означает столько же различных расписаний.',
         '', '## Воспроизводимые результаты и планы', '',
         '`catalog.csv` связывает каждый возвращённый вариант с настоящими schedule.json и schedule.csv. `plans/historical-v1/` содержит все старые цели с исторической версией; `plans/current/` — новые worst/Pareto и контроли; `plans/current-prior/` — ранее проверенные текущие nominal/deadline_f1. Их прежний внешний банк находится в `prior-validation.csv`, отдельно от нового. `inputs/` содержит исходные условия без расписания. Одинаковые физические планы могут соответствовать нескольким целям. `plans.csv` содержит новые внешние вероятности и совместные границы; `costs.csv` — полное время вызова, наблюдённое окно CP-prefix, завершённые/ошибочные/оборванные оценки. Подготовка окружения и весь runner-бюджет сохранены в provenance/budget.json и workflow logs.',
         '', f'Экспортировано исторических представителей: {result["historical_exports"]}. Техническая завершённость, физическая допустимость, внешнее качество и вычислительная цена сообщаются раздельно. Результаты относятся к перечисленным синтетическим законам и задачам; перенос на конкретное производство требует его операций и обоснованных условий поломок.']
