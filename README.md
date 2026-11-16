@@ -14,6 +14,8 @@ covers all ten fixed nominal plans under F1/F2, one feasible local correction,
 strong open controls and a common decision seal before independent validation.
 Detailed reports include the physical operation/machine edit, complete schedule
 files and external whole-batch effects. Commercial products are not measured.
+The [ten frozen input plans](results/fixed-plan-inputs/REPORT_RU.md) include
+actual JSON/CSV schedules, original constraints and sealed source provenance.
 
 The [manufacturing report](results/objectives/REPORT_RU.md) presents whole-batch
 deadline risk under machine failures, schedules generated from raw conditions,
