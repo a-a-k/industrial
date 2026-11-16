@@ -139,8 +139,16 @@ def present():
         'не проверялись. Результаты не устанавливают почти стопроцентную точность прогноза в реальном производстве.',
         f'Ошибки, тайм-ауты и невыполненные обязательства не считаются срывами производства. '
         f'В итоговом протоколе невыполненных обязательств: {len(result["missing"])}.']
+    registry=read_json('provenance/fixed_plan_reinforcement_runs.json')
+    infrastructure=registry.get('infrastructure_anomalies',[])
+    for issue in infrastructure:
+        lines+=['', f'Служебный сбой GitHub: при запуске фиксации {issue["run"]} не появился runner; '
+            f'API отмены возвратил HTTP 409. Фиксация успешно выполнена повторным запуском {issue["replacement_run"]}. '
+            'Первый запуск не используется в проверочных результатах и не выполнял производственных симуляций. '
+            'Это отдельный сбой планирования задания, а не срыв срока партии или тайм-аут вычислителя.']
     (ROOT/'REPORT_RU.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
     write_json(ROOT/'presentation.json',dict(status=result['status'],conditions=table,seal_receipt=receipt,
+        infrastructure_anomalies=infrastructure,
         source_sha256=digest(Path('industrial/reinforcement_presentation.py').read_bytes()),
         claim='presentation of sealed results; no new selection, simulation or significance tests'))
 
