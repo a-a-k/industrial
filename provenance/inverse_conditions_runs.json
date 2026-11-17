@@ -86,7 +86,10 @@
       "production_simulations": 0,
       "replacement_run": 43890035027,
       "replacement_source_unchanged": true,
-      "status": "UNUSED_QUEUED_WITH_ZERO_JOBS_CANCEL_AND_FORCE_CANCEL_REJECTED",
+      "status": "RESOLVED_UNUSED_REPORT_COMPLETED_SUCCESSFULLY",
+      "resolved_job_id": 133406350527,
+      "resolved_conclusion": "success",
+      "resolution": "the delayed original report eventually ran; accepted final report and production results unchanged",
       "accepted_for_results": false
     }
   ],
