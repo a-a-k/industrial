@@ -163,12 +163,16 @@ def work(args):
     o.started=started
     rows=[];controls={};best=None;result={};cheap_best=None;cheap_wall=None
     try:
-        rows,controls=cheap(o,a,args.target,root);best=o.best;cheap_best=dict(best);cheap_wall=time.perf_counter()-started
-        write_json(root/'checkpoint.json',dict(selected=best,controls=controls))
-        if best['training_feasible'] and best['count']==0:result=dict(status='TRAINING_MINIMUM_PROVED',minimum_proved=True)
-        elif args.method=='cheap':result=dict(status='CHEAP_COMPLETE',minimum_proved=False)
-        elif args.method=='lazy':best,result=lazy(o,best,args.target,root,args.seed)
-        else:best,result=scan(o,best,args.target,root)
+        if args.refine_only:
+            mask=o.meta['used_mask'];best=candidate(mask,o.score(mask),args.target);o.failed.clear()
+            best,result=lazy(o,best,args.target,root,args.seed)
+        else:
+            rows,controls=cheap(o,a,args.target,root);best=o.best;cheap_best=dict(best);cheap_wall=time.perf_counter()-started
+            write_json(root/'checkpoint.json',dict(selected=best,controls=controls))
+            if best['training_feasible'] and best['count']==0:result=dict(status='TRAINING_MINIMUM_PROVED',minimum_proved=True)
+            elif args.method=='cheap':result=dict(status='CHEAP_COMPLETE',minimum_proved=False)
+            elif args.method=='lazy':best,result=lazy(o,best,args.target,root,args.seed)
+            else:best,result=scan(o,best,args.target,root)
     except Budget:
         best=o.best;controls=o.controls
         result=dict(status='BUDGET',minimum_proved=False)
@@ -187,4 +191,5 @@ if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--data',required=True);p.add_argument('--bank',required=True);p.add_argument('--analysis',required=True)
     p.add_argument('--root',required=True);p.add_argument('--method',choices=['lazy','scan','cheap'],required=True);p.add_argument('--budget',type=float,default=120)
     p.add_argument('--target',type=int,default=500);p.add_argument('--cache-limit',type=int,default=1000000);p.add_argument('--seed',type=int,default=1907)
+    p.add_argument('--refine-only',action='store_true',help='Exercise refinement without a heuristic warm start during qualification')
     work(p.parse_args())

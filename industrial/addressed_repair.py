@@ -64,12 +64,13 @@ def preparation():
     return dict(common_environment_s=window('common'),cp_environment_s=window('cp'),build=read_json(ROOT/'build.json'))
 
 
-def worker(data,bank,a,folder,method,target,budget):
+def worker(data,bank,a,folder,method,target,budget,refine_only=False):
     folder=Path(folder);folder.mkdir(parents=True,exist_ok=True)
     executable=os.environ['CP_PYTHON'] if method=='lazy' else sys.executable
     command=[executable,'-m','industrial.addressed_search','--data',str(data),'--bank',str(bank),'--analysis',str(a),
         '--root',str(folder),'--method',method,'--target',str(target),'--budget',str(budget),
         '--cache-limit',str(spec()['cache_limit']),'--seed',str(spec()['seed'])]
+    if refine_only:command.append('--refine-only')
     process=run(command,budget);write_json(folder/'process.json',process)
     if process['status']!='OK' or not (folder/'answer.json').exists():raise ValueError('addressed worker unavailable')
     answer=read_json(folder/'answer.json')
@@ -94,6 +95,7 @@ def qualify():
         used=sum(1<<m for m,q in enumerate(data['queues']) if q)
         for law in spec()['laws']:
             bank=pair_bank(data,law,16,'addressed-v1-qualification');path=folder/(law+'-bank.json');write_json(path,bank)
+            renewal_path=folder/(law+'-renewal-bank.json');write_json(renewal_path,bank)
             original='F2' if law=='F2SI' else 'F1';uniform_checks=[]
             for mask,rho in ((0,1),(used,.25)):
                 expected=draw(data,original,rho,16,'addressed-v1-qualification')
@@ -102,7 +104,7 @@ def qualify():
                 if actual_projected!=expected_projected:
                     raise ValueError('uniform vector changed original renewal process')
                 uniform_checks.append(dict(mask=mask,rho=rho,actual_used_sha256=digest(canonical(actual_projected)),
-                    expected_used_sha256=digest(canonical(expected_projected)),raw_bank=str(path)))
+                    expected_used_sha256=digest(canonical(expected_projected)),raw_bank=str(renewal_path)))
             if index==1:
                 def fixture(name,failures):return dict(id=name,failures=failures,work_overrides=[],shared_calendar=False)
                 bank=[dict(base=fixture('serial',[[0,0,30],[1,60,90]]),fast=fixture('serial',[[0,0,10],[1,60,70]])),
@@ -131,6 +133,11 @@ def qualify():
                     r=worker(folder/'schedule.json',path,folder/'analysis.json',folder/(law+'-'+method),method,target,25)
                     if not r['search']['minimum_proved'] or r['selected']['count']!=minimum:
                         raise ValueError('inverse allocation disagrees with exhaustive independent DES')
+                if index==1:
+                    r=worker(folder/'schedule.json',path,folder/'analysis.json',folder/(law+'-cold-refinement'),
+                        'lazy',target,25,refine_only=True)
+                    if not r['search']['minimum_proved'] or r['selected']['count']!=minimum or r['search'].get('cuts',0)<1:
+                        raise ValueError('cold inverse response refinement did not match independent DES minimum')
             checks.append(dict(plan=data['dataset_id'],law=law,status='PASS',masks=len(truth),
                 uniform_used_calendars_exact=True,uniform_checks=uniform_checks))
     write_json(ROOT/'qualification.json',dict(status='PASS',checks=checks,implementation=fingerprint(),spec=spec(),**stamp()))
