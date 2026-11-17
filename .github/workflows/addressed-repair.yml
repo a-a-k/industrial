@@ -1,0 +1,87 @@
+name: Addressed repair allocation and independent crash tests
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        type: choice
+        options: [qualify, train, seal, validate, report]
+        default: qualify
+      registry:
+        type: string
+        default: '{}'
+      cells:
+        type: string
+        default: '["Mk01-F1","Mk01-F2SI","Mk02-F1","Mk02-F2SI","Mk03-F1","Mk03-F2SI","Mk04-F1","Mk04-F2SI","Mk05-F1","Mk05-F2SI","Mk06-F1","Mk06-F2SI","Mk07-F1","Mk07-F2SI","Mk08-F1","Mk08-F2SI","Mk09-F1","Mk09-F2SI","Mk10-F1","Mk10-F2SI"]'
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: industrial-addressed-${{ inputs.stage }}
+  cancel-in-progress: false
+env:
+  GH_REPO: ${{ github.repository }}
+  PYTHONPATH: .:vendor/simpat
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+jobs:
+  experiment:
+    name: targeted ${{ inputs.stage }} (${{ matrix.cell }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: ${{ inputs.stage == 'train' && 30 || inputs.stage == 'validate' && 30 || 90 }}
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        cell: ${{ fromJSON((inputs.stage == 'train' || inputs.stage == 'validate') && inputs.cells || '["all"]') }}
+    container:
+      image: python:3.11.16-bookworm@sha256:b99029c95d3d37fb1e4e76d287f7984373dca77c665885986e31b2c95260c13c
+      options: --cpus=1 --memory=4g --memory-swap=4g
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TSFG_SOURCE_SSH_KEY: ${{ secrets.TSFG_SOURCE_SSH_KEY }}
+      STAGE: ${{ inputs.stage }}
+      CELL: ${{ matrix.cell }}
+      REGISTRY: ${{ inputs.registry }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: python scripts/budget.py
+      - name: Start common preparation clock
+        run: |
+          mkdir -p output/addressed
+          date +%s.%N > output/addressed/common-start.txt
+      - uses: ./.github/actions/experiment-environment
+        with:
+          cp: 'false'
+          build: ${{ (inputs.stage == 'qualify' || inputs.stage == 'validate') && 'tsfg' || 'none' }}
+      - name: Complete common preparation
+        run: date +%s.%N > output/addressed/common-end.txt
+      - name: Prepare the frozen inverse solver environment
+        if: inputs.stage == 'qualify' || inputs.stage == 'train'
+        run: |
+          date +%s.%N > output/addressed/cp-start.txt
+          python -c 'from industrial.releases import fetch;fetch("cpsat-environment-43719097005-1","output/cp-env")'
+          python -m venv .private/cpsat-venv
+          .private/cpsat-venv/bin/python -m pip install --no-index --find-links output/cp-env/cpsat-environment/wheels --require-hashes -r output/cp-env/cpsat-environment/requirements.lock
+          echo "CP_PYTHON=$GITHUB_WORKSPACE/.private/cpsat-venv/bin/python" >> "$GITHUB_ENV"
+          date +%s.%N > output/addressed/cp-end.txt
+      - name: Run the registered addressed stage
+        run: |
+          python -m compileall -q industrial/addressed_repair.py industrial/addressed_search.py
+          if [ "$STAGE" = qualify ] || [ "$STAGE" = train ] || [ "$STAGE" = validate ]; then
+            python -m industrial.addressed_repair build
+          fi
+          INSTANCE="${CELL%-*}"
+          LAW="${CELL##*-}"
+          python -m industrial.addressed_repair "$STAGE" --instance "$INSTANCE" --law "$LAW" --registry "$REGISTRY"
+      - if: always()
+        run: |
+          if ! command -v gh >/dev/null 2>&1; then
+            apt-get update -qq && apt-get install -y --no-install-recommends gh
+          fi
+          mkdir -p output/addressed/provenance
+          cp output/budget*.json output/addressed/provenance/ || true
+          cp build/*.json output/addressed/provenance/ || true
+          python scripts/publish.py --name "addressed-$STAGE-$CELL" --path output/addressed
