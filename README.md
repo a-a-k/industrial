@@ -41,6 +41,20 @@ includes analytic service constraints, complete schedules, all unsuccessful and
 uncertain combinations, simultaneous confidence bounds and complete cost scopes.
 These are requirements within the registered model and finite menu.
 
+The [addressed repair report](results/addressed-repair/REPORT_RU.md) completes
+all 20 conditions and 86 sealed intervention sets, independently checking
+704,512 whole-batch outcomes per public engine. Four original cases already
+meet the 95% target. Of 16 insufficient cases, 15 have certified options that
+accelerate repair on only part of the equipment. For Mk01/F1, three of six
+machines suffice; the remaining machines retain their original repair law.
+Mk08/F1 has no certified partial-equipment option in the registered family.
+The full five-repeat comparison does **not** establish an advantage of the lazy
+Boolean/CP search: cheap controls select equally small sets on the working bank. Recommendations,
+their original method provenance, all uncertain outcomes, analytic time windows
+and saved paired trajectory examples are retained. F2SI explicitly uses shared
+innovations and individual renewal clocks; no global minimum, real repair
+resource cost or exclusive TSFG advantage is claimed.
+
 The [manufacturing report](results/objectives/REPORT_RU.md) presents whole-batch
 deadline risk under machine failures, schedules generated from raw conditions,
 external checks of each objective and complete search costs. The
