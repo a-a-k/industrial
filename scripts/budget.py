@@ -45,7 +45,7 @@ while True:
                     elapsed=max(0.,(when(job['completed_at'])-when(job['started_at'])).total_seconds());completed+=elapsed
                 job_limit_s=270*60 if run.get('path','').split('@')[0].endswith('/measure-extended.yml') and job['name']!='report' else 90*60
                 if run.get('path','').split('@')[0].endswith('/addressed-repair.yml') and job['name'].startswith(('targeted train ','targeted validate ')):
-                    job_limit_s=30*60
+                    job_limit_s=(45 if job['name'].startswith('targeted train ') else 30)*60
                 if job['status']!='completed':reserved+=job_limit_s
                 census.append(dict(id=job['id'],run=run['id'],status=job['status'],elapsed_s=elapsed,job_limit_s=job_limit_s))
             if len(jobs)<100:break

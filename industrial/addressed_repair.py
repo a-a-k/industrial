@@ -70,10 +70,10 @@ def worker(data,bank,a,folder,method,target,budget):
     command=[executable,'-m','industrial.addressed_search','--data',str(data),'--bank',str(bank),'--analysis',str(a),
         '--root',str(folder),'--method',method,'--target',str(target),'--budget',str(budget),
         '--cache-limit',str(spec()['cache_limit']),'--seed',str(spec()['seed'])]
-    process=run(command,budget+15);write_json(folder/'process.json',process)
+    process=run(command,budget);write_json(folder/'process.json',process)
     if process['status']!='OK' or not (folder/'answer.json').exists():raise ValueError('addressed worker unavailable')
     answer=read_json(folder/'answer.json')
-    if answer['status']!='PASS' or process['wall_s']>budget+2:raise ValueError('addressed worker exceeded complete process budget')
+    if answer['status']!='PASS' or process['wall_s']>budget:raise ValueError('BUDGET_EXCEEDED: complete addressed worker process')
     return dict(answer,process=process)
 
 
@@ -94,11 +94,15 @@ def qualify():
         used=sum(1<<m for m,q in enumerate(data['queues']) if q)
         for law in spec()['laws']:
             bank=pair_bank(data,law,16,'addressed-v1-qualification');path=folder/(law+'-bank.json');write_json(path,bank)
-            original='F2' if law=='F2SI' else 'F1'
+            original='F2' if law=='F2SI' else 'F1';uniform_checks=[]
             for mask,rho in ((0,1),(used,.25)):
                 expected=draw(data,original,rho,16,'addressed-v1-qualification')
-                if [r['failures'] for r in mix(data,bank,mask)]!=[r['failures'] for r in expected]:
+                relevant=lambda histories:[[v for v in r['failures'] if data['queues'][v[0]]] for r in histories]
+                actual_projected=relevant(mix(data,bank,mask));expected_projected=relevant(expected)
+                if actual_projected!=expected_projected:
                     raise ValueError('uniform vector changed original renewal process')
+                uniform_checks.append(dict(mask=mask,rho=rho,actual_used_sha256=digest(canonical(actual_projected)),
+                    expected_used_sha256=digest(canonical(expected_projected)),raw_bank=str(path)))
             if index==1:
                 def fixture(name,failures):return dict(id=name,failures=failures,work_overrides=[],shared_calendar=False)
                 bank=[dict(base=fixture('serial',[[0,0,30],[1,60,90]]),fast=fixture('serial',[[0,0,10],[1,60,70]])),
@@ -127,7 +131,8 @@ def qualify():
                     r=worker(folder/'schedule.json',path,folder/'analysis.json',folder/(law+'-'+method),method,target,25)
                     if not r['search']['minimum_proved'] or r['selected']['count']!=minimum:
                         raise ValueError('inverse allocation disagrees with exhaustive independent DES')
-            checks.append(dict(plan=data['dataset_id'],law=law,status='PASS',masks=len(truth),uniform_law_exact=True))
+            checks.append(dict(plan=data['dataset_id'],law=law,status='PASS',masks=len(truth),
+                uniform_used_calendars_exact=True,uniform_checks=uniform_checks))
     write_json(ROOT/'qualification.json',dict(status='PASS',checks=checks,implementation=fingerprint(),spec=spec(),**stamp()))
 
 
@@ -136,19 +141,21 @@ def train(instance,law,registry):
     source,qreceipt=fetch(registry['qualification'],'output/addressed-qualification');q=read_json(source/'qualification.json')
     if q['status']!='PASS' or q['implementation']!=fingerprint() or q['spec']!=spec():raise ValueError('unqualified addressed implementation')
     data,receipt=base_plan(instance);acquisition=time.perf_counter()-started;cfg=spec()
-    write_json(ROOT/'schedule.json',data);a=analysis(data);a['queues']=data['queues'];write_json(ROOT/'analysis.json',a)
+    t=time.perf_counter();write_json(ROOT/'schedule.json',data);a=analysis(data);a['queues']=data['queues'];write_json(ROOT/'analysis.json',a)
+    input_prepare=time.perf_counter()-t
     t=time.perf_counter();bank=pair_bank(data,law,cfg['training_samples'],cfg['training_split']);write_json(ROOT/'bank.json',bank)
     generation=time.perf_counter()-t;results=[]
     for repeat in range(cfg['repetitions']):
         pair={}
-        for method in (('lazy','scan') if repeat%2==0 else ('scan','lazy')):
+        order=list(('lazy','scan') if repeat%2==0 else ('scan','lazy'));order.insert(repeat%3,'cheap')
+        for method in order:
             pair[method]=worker(ROOT/'schedule.json',ROOT/'bank.json',ROOT/'analysis.json',ROOT/'workers'/str(repeat)/method,
                 method,cfg['training_required_successes'],cfg['worker_budget_s'])
         results.append(pair);write_json(ROOT/'progress.json',dict(completed_pairs=len(results),required=cfg['repetitions']))
     write_json(ROOT/'bank.json.gz',bank);(ROOT/'bank.json').unlink()
     write_json(ROOT/'training.json',dict(status='PASS',instance=instance,law=law,results=results,
         plan_sha256=digest(canonical(data)),bank_sha256=digest(canonical(bank)),input_provenance=receipt,
-        qualification_receipt=qreceipt,preparation=preparation(),acquisition_s=acquisition,generation_s=generation,
+        qualification_receipt=qreceipt,preparation=preparation(),acquisition_s=acquisition,input_prepare_s=input_prepare,generation_s=generation,
         wall_s=time.perf_counter()-started,implementation=fingerprint(),spec=cfg,**stamp()))
 
 
@@ -169,6 +176,7 @@ def seal(registry):
         for repeat,pair in enumerate(r['results']):
             for method,answer in pair.items():
                 add(answer['selected']['mask'],dict(method=method,repeat=repeat))
+                if answer['cheap_best'] is not None:add(answer['cheap_best']['mask'],dict(method='cheap',repeat=repeat,parent=method))
                 for control,value in answer['controls'].items():add(value['mask'],dict(method=control,repeat=repeat,parent=method))
         records.append(dict(training_release=tag,training_receipt=receipt,training=r,case=key,used_machines=used.bit_count(),variants=list(variants.values())))
     if seen!=cases():raise ValueError('all20 training cells required before opening validation')

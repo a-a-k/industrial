@@ -16,7 +16,8 @@ class Budget(Exception):pass
 
 class Oracle:
     def __init__(self,data,bank,analysis,root,cache_limit,deadline,target):
-        self.deadline=deadline;self.target=target;self.root=Path(root);self.scores={};self.failed=set();self.last={}
+        self.started=time.perf_counter();self.deadline=deadline;self.target=target;self.root=Path(root)
+        self.scores={};self.failed=set();self.last={};self.best=None;self.controls={}
         self.log=gzip.open(self.root/'queries.jsonl.gz','wt',encoding='utf-8')
         self.process=subprocess.Popen([str(Path('build/addressed-oracle').resolve()),data,bank,analysis,str(cache_limit)],
             stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,bufsize=1)
@@ -36,6 +37,13 @@ class Oracle:
         for s,value in enumerate(answer['labels']):
             if value is False:self.failed.add((s,mask&self.meta['active_masks'][s]))
         if answer['complete']:self.scores[mask]=answer
+        if answer['complete'] or answer['feasible']:
+            row=candidate(mask,answer['successes'],self.target,answer['complete'])
+            row['ready_wall_s']=time.perf_counter()-self.started
+            updated=choose([r for r in (self.best,row) if r is not None],self.target)
+            if updated!=self.best:
+                self.best=updated
+                write_json(self.root/'checkpoint.json',dict(selected=self.best,controls=self.controls))
         return answer
     def score(self,mask):return self.query(mask)['successes']
     def close(self):
@@ -47,9 +55,9 @@ class Oracle:
         if self.process.returncode:raise ValueError('oracle exited with an error')
 
 
-def candidate(mask,score,target):
+def candidate(mask,score,target,exact=True):
     return dict(mask=mask,machines=[m for m in range(32) if mask>>m&1],count=mask.bit_count(),
-                training_successes=score,training_feasible=score>=target)
+                training_successes=score,training_feasible=score>=target,training_score_exact=exact)
 
 
 def choose(rows,target):
@@ -58,15 +66,16 @@ def choose(rows,target):
 
 
 def cheap(o,a,target,root):
-    rows=[];controls={};uniform=o.meta['used_mask']
+    rows=[];controls=o.controls;uniform=o.meta['used_mask']
     def remember(mask):
-        row=candidate(mask,o.score(mask),target);rows.append(row);return row
+        row=candidate(mask,o.score(mask),target);row['ready_wall_s']=time.perf_counter()-o.started;rows.append(row);return row
     base=remember(0);controls['none']=base;write_json(root/'checkpoint.json',dict(selected=base,controls=controls))
     if base['training_feasible']:
         controls.update({name:base for name in ('load','slack','greedy','pair')});return rows,controls
     controls['uniform']=remember(uniform)
     def save(name,row):
-        controls[name]=row;write_json(root/'checkpoint.json',dict(selected=choose(rows,target),controls=controls))
+        row=dict(row,ready_wall_s=time.perf_counter()-o.started)
+        controls[name]=row;write_json(root/'checkpoint.json',dict(selected=o.best,controls=controls))
     orders=dict(load=sorted(o.used,key=lambda m:(-a['machine_work'][m],m)),
         slack=sorted(o.used,key=lambda m:(min(a['deadline_slack'][i] for i in a['queues'][m]),m)))
     for name,order in orders.items():
@@ -107,7 +116,7 @@ def scan(o,best,target,root):
         for group in combinations(o.used,size):
             mask=sum(1<<m for m in group);answer=o.query(mask,False);visited+=1
             if answer['feasible']:
-                selected=candidate(mask,o.score(mask),target)
+                selected=candidate(mask,answer['successes'],target,answer['complete'])
                 return selected,dict(status='TRAINING_MINIMUM_PROVED',minimum_proved=True,visited=visited)
     return best,dict(status='TRAINING_MINIMUM_PROVED' if best['training_feasible'] else 'TRAINING_INFEASIBLE',
                      minimum_proved=best['training_feasible'],visited=visited)
@@ -124,6 +133,7 @@ def lazy(o,best,target,root,seed):
     added=set();iterations=0;log=(root/'solver.jsonl').open('w',encoding='utf-8')
     def cuts():
         for s,pattern in sorted(o.failed-added):
+            o.check()
             active=o.meta['active_masks'][s]
             difference=[1-x[m] if pattern>>m&1 else x[m] for m in o.used if active>>m&1]
             model.add(z[s]<=sum(difference));added.add((s,pattern))
@@ -141,23 +151,26 @@ def lazy(o,best,target,root,seed):
                 return best,dict(status='CP_UNKNOWN',minimum_proved=False,iterations=iterations,cuts=len(added))
             mask=sum(1<<m for m in o.used if solver.boolean_value(x[m]));answer=o.query(mask,False)
             if answer['feasible']:
-                best=candidate(mask,o.score(mask),target);write_json(root/'checkpoint.json',dict(selected=best))
+                best=candidate(mask,answer['successes'],target,answer['complete'])
+                write_json(root/'checkpoint.json',dict(selected=best,controls=o.controls))
                 model.add(sum(x.values())<best['count'])
     finally:log.close()
 
 
 def work(args):
     actions_only();started=time.perf_counter();root=Path(args.root);root.mkdir(parents=True,exist_ok=True)
-    deadline=started+args.budget-1.5;a=read_json(args.analysis);o=Oracle(args.data,args.bank,args.analysis,root,args.cache_limit,deadline,args.target)
-    rows=[];controls={};best=None;result={}
+    deadline=started+args.budget-3;a=read_json(args.analysis);o=Oracle(args.data,args.bank,args.analysis,root,args.cache_limit,deadline,args.target)
+    o.started=started
+    rows=[];controls={};best=None;result={};cheap_best=None;cheap_wall=None
     try:
-        rows,controls=cheap(o,a,args.target,root);best=choose(rows,args.target)
+        rows,controls=cheap(o,a,args.target,root);best=o.best;cheap_best=dict(best);cheap_wall=time.perf_counter()-started
         write_json(root/'checkpoint.json',dict(selected=best,controls=controls))
         if best['training_feasible'] and best['count']==0:result=dict(status='TRAINING_MINIMUM_PROVED',minimum_proved=True)
+        elif args.method=='cheap':result=dict(status='CHEAP_COMPLETE',minimum_proved=False)
         elif args.method=='lazy':best,result=lazy(o,best,args.target,root,args.seed)
         else:best,result=scan(o,best,args.target,root)
     except Budget:
-        checkpoint=read_json(root/'checkpoint.json');best=checkpoint['selected'];controls=checkpoint.get('controls',controls)
+        best=o.best;controls=o.controls
         result=dict(status='BUDGET',minimum_proved=False)
     finally:o.close()
     if best is None:raise ValueError('no checked incumbent')
@@ -166,11 +179,12 @@ def work(args):
         if line.startswith('VmHWM:'):memory['VmHWM_bytes']=int(line.split()[1])*1024
     write_json(root/'answer.json',dict(status='PASS',method=args.method,selected=best,controls=controls,search=result,
         internal_wall_s=time.perf_counter()-started,budget_s=args.budget,oracle=o.last,
+        cheap_best=cheap_best,cheap_wall_s=cheap_wall,
         incumbent_complete=all(k in controls for k in ('load','slack','greedy','pair')),**memory))
 
 
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--data',required=True);p.add_argument('--bank',required=True);p.add_argument('--analysis',required=True)
-    p.add_argument('--root',required=True);p.add_argument('--method',choices=['lazy','scan'],required=True);p.add_argument('--budget',type=float,default=120)
+    p.add_argument('--root',required=True);p.add_argument('--method',choices=['lazy','scan','cheap'],required=True);p.add_argument('--budget',type=float,default=120)
     p.add_argument('--target',type=int,default=500);p.add_argument('--cache-limit',type=int,default=1000000);p.add_argument('--seed',type=int,default=1907)
     work(p.parse_args())

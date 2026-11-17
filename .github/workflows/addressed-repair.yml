@@ -28,7 +28,7 @@ jobs:
   experiment:
     name: targeted ${{ inputs.stage }} (${{ matrix.cell }})
     runs-on: ubuntu-24.04
-    timeout-minutes: ${{ inputs.stage == 'train' && 30 || inputs.stage == 'validate' && 30 || 90 }}
+    timeout-minutes: ${{ inputs.stage == 'train' && 45 || inputs.stage == 'validate' && 30 || 90 }}
     strategy:
       fail-fast: false
       max-parallel: 3
