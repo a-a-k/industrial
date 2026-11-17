@@ -103,6 +103,7 @@ def compare_cell(r):
         installed_D_median_s=median(d_warm),installed_reference_median_s=median(resource_warm if resource_win or reliability else cost_warm),
         resource_reference_complete_median_s=median(resource_refs),resource_reference_installed_median_s=median(resource_warm),
         cost_reference_complete_median_s=median(cost_refs),cost_reference_installed_median_s=median(cost_warm),
+        displayed_reference_branch='resource' if resource_win or reliability else 'cost',
         prefix_cost_scope='measured elapsed-ready lower bounds; output shutdown omitted, conservatively favourable to controls',
         decision_repetitions=pairs)
     return gate,rows,prefixes
@@ -235,6 +236,11 @@ def report(registry):
     result=dict(technical_status='COMPLETE' if complete else 'PARTIAL',scientific_verdict='ESTABLISHED_ON_REGISTERED_CASES' if complete and wins else 'NOT_ESTABLISHED',
         completed_cases=len(seen),required_cases=20,completed_configurations=len(outcomes),required_configurations=sealed['configurations'],
         winning_cases=wins,cases_with_certified_sparse_options=sum(s['certified_sparse_options']>0 for s in summaries),summaries=summaries,
+        baseline_status_counts={status:sum(s['baseline_status']==status for s in summaries) for status in ('FEASIBLE','INFEASIBLE','UNRESOLVED')},
+        cases_baseline_not_certified_without_sparse=sum(s['baseline_status']!='FEASIBLE' and s['certified_sparse_options']==0 for s in summaries),
+        execution_totals=dict(production_scalar_samples=sum(c['samples'] for c in outcomes),
+            risk_dag_samples=sum(c['samples'] for c in outcomes),
+            s1_scalar_samples=len(outcomes)*cfg['s1_scalar_samples'],full_trace_samples_per_engine=len(outcomes)*cfg['full_trace_samples']),
         gates=gates,validations=records,missing=missing,seal_release=registry['seal'],seal_receipt=receipt,
         family_error=cfg['family_error'],one_sided_alpha=alpha,global_optimality_claimed=False,real_plant_validation=False,
         exclusive_TSFG_advantage_claimed=False,report_source_sha256=digest(Path('industrial/addressed_report.py').read_bytes()),
