@@ -2,7 +2,7 @@
 import csv
 from pathlib import Path
 from statistics import median
-from .common import canonical,digest,read_json,write_json
+from .common import canonical,digest,read_json,read_rows,write_json
 from .addressed_repair import ROOT,cases,fingerprint,spec,stamp
 from .inverse_conditions import save_plan
 from .releases import fetch
@@ -99,10 +99,34 @@ def compare_cell(r):
     gate=dict(scientific_win=bool(resource_win or cost_win or reliability),resource_win=bool(resource_win),cost_win=bool(cost_win),
         reliability_win=bool(reliability),all5_sparse=bool(sparse),all5_incumbents_complete=bool(all_complete),
         all5_DBC_certified=bool(valid),named_control_blockers=blockers,complete_D_median_s=median(d_full),
-        complete_reference_median_s=median(cost_refs),installed_D_median_s=median(d_warm),installed_reference_median_s=median(cost_warm),
+        complete_reference_median_s=median(resource_refs if resource_win or reliability else cost_refs),
+        installed_D_median_s=median(d_warm),installed_reference_median_s=median(resource_warm if resource_win or reliability else cost_warm),
+        resource_reference_complete_median_s=median(resource_refs),resource_reference_installed_median_s=median(resource_warm),
+        cost_reference_complete_median_s=median(cost_refs),cost_reference_installed_median_s=median(cost_warm),
         prefix_cost_scope='measured elapsed-ready lower bounds; output shutdown omitted, conservatively favourable to controls',
         decision_repetitions=pairs)
     return gate,rows,prefixes
+
+
+def trajectory_example(folder,data,mask):
+    if not mask:return None
+    paths=[folder/'variants'/str(v)/'full/des/des-00000.jsonl.gz' for v in (0,mask)]
+    base={r['scenario_id']:r for r in read_rows(paths[0])};modified={r['scenario_id']:r for r in read_rows(paths[1])}
+    deadline=11*data['nominal_makespan']//10
+    def late(row):return [j['id'] for j in data['jobs'] if row['finish'][j['final_operation']] is None or row['finish'][j['final_operation']]>deadline]
+    for aid,before in base.items():
+        after=modified[aid]
+        if not late(before) or late(after):continue
+        edits=[]
+        for o in data['operations']:
+            i=o['id'];a,b=before['finish'][i],after['finish'][i]
+            if b is None or (a is not None and a<=b):continue
+            edits.append(dict(operation=i,job=o['job'],machine=o['machine'],targeted=bool(mask>>o['machine']&1),
+                finish_before=None if a is None else a/100,finish_after=b/100))
+        edits.sort(key=lambda r:(r['finish_after'],r['operation']))
+        return dict(scenario_id=aid,late_jobs_before=late(before),late_jobs_after=[],operations=edits[:12],
+            scope='one prespecified full-trace subset counterfactual, not a separate probability estimate or unique causal attribution')
+    return None
 
 
 def report(registry):
@@ -112,7 +136,7 @@ def report(registry):
     if {r['case'] for r in sealed['records']}!=cases():raise ValueError('addressed report requires all20 sealed cases')
     cells={r['case']:r for r in sealed['records']};alpha=cfg['family_error']/(2*sealed['configurations'])
     if alpha!=sealed['one_sided_alpha']:raise ValueError('addressed predeclared statistical family changed')
-    records=[];missing=[];seen=set()
+    records=[];missing=[];seen=set();folders={}
     for index,tag in enumerate(registry['validations']):
         try:
             folder,rcpt=fetch(tag,f'output/addressed-validation-{index}');r=read_json(folder/'validation.json');key=r['case']
@@ -132,6 +156,8 @@ def report(registry):
                 if abs(c['lower']-lower(c['successes'],c['samples'],alpha))>1e-12 or abs(c['upper']-upper(c['successes'],c['samples'],alpha))>1e-12:
                     raise ValueError('addressed confidence bounds changed')
                 native=read_json(folder/'variants'/str(c['mask'])/'des/production.json')
+                if native['sample_count']!=cfg['validation_samples'] or len(native['finished_at'])!=cfg['validation_samples']:
+                    raise ValueError('external production bank incomplete')
                 if sum(t is not None for t in native['finished_at'])!=c['successes']:raise ValueError('external production census changed')
                 if c['des_process']['status']!='OK' or any(p['process']['status']!='OK' for p in c['dag_calls']+c['s1_calls']):
                     raise ValueError('addressed independent process failed')
@@ -142,13 +168,14 @@ def report(registry):
                     raise ValueError('addressed full physical checks incomplete')
                 status='FEASIBLE' if c['lower']>=cfg['target_probability'] else 'INFEASIBLE' if c['upper']<cfg['target_probability'] else 'UNRESOLVED'
                 if c['status']!=status:raise ValueError('addressed status changed')
-            seen.add(key);records.append(dict(validation_release=tag,validation_receipt=rcpt,**r))
+            seen.add(key);folders[key]=folder;records.append(dict(validation_release=tag,validation_receipt=rcpt,**r))
         except Exception as error:missing.append(dict(release=tag,error=str(error)))
     missing.extend(dict(case=c,error='required addressed validation missing') for c in sorted(cases()-seen))
     outcomes=[];decisions=[];summaries=[];gates={};prefixes=[];interventions=[]
     for key,cell in cells.items():
         instance=cell['training']['instance'];dest=ROOT/'plans'/instance
-        if not dest.exists():save_plan(dest,read_json(source/key/'schedule.json'))
+        if not dest.exists():
+            save_plan(dest,read_json(source/key/'schedule.json'));write_json(dest/'analysis.json',read_json(source/key/'analysis.json'))
     for r in sorted(records,key=lambda r:r['case']):
         key=r['case'];cell=r['training_cell'];gate,rows,pr=compare_cell(r);gates[key]=gate;decisions.extend(rows)
         prefixes.extend(dict(case=key,**p) for p in pr);outcomes.extend(outcome_row(key,c) for c in r['conditions'])
@@ -181,6 +208,24 @@ def report(registry):
             'comparison.json сохраняет все условия строгого gate и причины блокировки. conditions.csv включает все уникальные наборы, в том числе неопределённые и недостаточные.',
             'Минимум на рабочем банке512 не является минимумом истинной вероятности. Полный gate требует все пять повторов, адресное0<k<M, '
             'подтверждённые физические исходы и сравнение с самостоятельным cheap и ранними именованными контролями.']
+        a=read_json(source/key/'analysis.json');lines+=['','## Ограничения для выбранных ресурсов','',
+            '| Станок | Начало окна | Конец окна | Обязательное рабочее время | Допустимый простой в окне |',
+            '|---:|---:|---:|---:|---:|']
+        for m in D['machines']:
+            w=next(w for w in a['windows'] if w['machine']==m)
+            lines.append(f'| {m} | {w["begin"]/100:g} | {w["end"]/100:g} | {w["required"]/100:g} | {(w["end"]-w["begin"]-w["required"])/100:g} |')
+        lines+=['','Если фактический простой превышает этот запас, необходимое условие выпуска партии нарушено. '
+            'Прохождение показанных окон само по себе успех не гарантирует; достаточность выбранного набора проверяется фактическим выпуском.']
+        example=trajectory_example(folders[key],data,D['mask'])
+        if example is not None:
+            write_json(case/'example.json',example);lines+=['','## Пример распространения задержки','',
+                f'В траектории {example["scenario_id"]} до усиления опаздывали заказы {example["late_jobs_before"]}; после усиления вся партия успела.',
+                '', '| Операция | Заказ | Станок | Ремонт усилен | Окончание до | Окончание после |',
+                '|---:|---:|---:|---|---:|---:|']
+            for e in example['operations']:lines.append(f'| {e["operation"]} | {e["job"]} | {e["machine"]} | '
+                f'{"да" if e["targeted"] else "нет"} | {e["finish_before"] if e["finish_before"] is not None else "неизвестно к H"} | {e["finish_after"]} |')
+            lines+=['','Это один пример из заранее фиксированных первых16 полных трасс, а не дополнительная оценка вероятности '
+                'или доказательство единственной причины. Времена после наблюдаемого горизонта остаются неизвестными.']
         if r['law']=='F2SI':lines+=['F2SI предполагает общие случайные инновации и собственные renewal-часы; адресное действие не моделирует неизменяемый внешний общий простой.']
         (case/'REPORT_RU.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
     for name,rows in [('conditions.csv',outcomes),('decisions.csv',decisions),('summary.csv',summaries),('named_costs.csv',prefixes),('interventions.csv',interventions)]:csv_file(ROOT/name,rows)
