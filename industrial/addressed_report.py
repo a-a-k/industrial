@@ -35,6 +35,14 @@ def outcome_row(case,c):
 
 def compare_cell(r):
     cfg=spec();cell=r['training_cell'];train=cell['training'];by_mask={c['mask']:c for c in r['conditions']}
+    if len(train['results'])!=cfg['repetitions']:raise ValueError('not all five addressed repetitions are present')
+    for group in train['results']:
+        if set(group)!=set(('lazy','scan','cheap')):raise ValueError('addressed participant missing from pair')
+        for method,answer in group.items():
+            if answer['status']!='PASS' or answer['method']!=method or answer['process']['status']!='OK':
+                raise ValueError('addressed search process failed')
+            if answer['process']['wall_s']>cfg['worker_budget_s'] or answer['budget_s']!=cfg['worker_budget_s']:
+                raise ValueError('addressed complete worker budget violated')
     common=common_train(train)+validation_prep(r);cp=train['preparation']['cp_environment_s'];M=cell['used_machines']
     rows=[];pairs=[];prefixes=[];blockers=[]
     for repeat,group in enumerate(train['results']):
@@ -51,11 +59,14 @@ def compare_cell(r):
         named=[];D=pair['lazy']
         for parent in ('scan','cheap'):
             answer=group[parent];launch=max(0.,answer['process']['wall_s']-answer['internal_wall_s'])
-            for name,value in answer['controls'].items():
+            available=dict(answer['controls'])
+            if answer.get('cheap_best') is not None:available['incumbent']=answer['cheap_best']
+            if parent=='cheap':available['cheap_return']=answer['selected']
+            for name,value in available.items():
                 c=by_mask[value['mask']];k=len(c['machines'])
                 if name!='uniform' and k<=D['k'] and c['status'] in ('FEASIBLE','UNRESOLVED'):
                     blockers.append(dict(repeat=repeat,parent=parent,control=name,mask=c['mask'],status=c['status'],k=k))
-                if name in ('load','slack','greedy','pair') and c['status']=='FEASIBLE' and 0<k<M:
+                if name in ('load','slack','greedy','pair','incumbent','cheap_return') and c['status']=='FEASIBLE' and 0<k<M:
                     warm=value['ready_wall_s']+launch
                     named.append(dict(method=parent+'/'+name,k=k,warm=warm,full=common+warm+c['validation_wall_s']))
         pair['named']=named;pairs.append(pair);prefixes.extend(dict(repeat=repeat,**item) for item in named)
