@@ -1,5 +1,6 @@
 """All addressed decisions, external outcomes and conservative complete-cost gates."""
 import csv
+import json
 from pathlib import Path
 from statistics import median
 from .common import canonical,digest,read_json,read_rows,write_json
@@ -188,6 +189,8 @@ def report(registry):
         recommendation=min(feasible,key=lambda c:(len(c['machines']),-c['lower'],c['mask'])) if feasible else None
         if recommendation is not None:
             recommendations.append(dict(outcome_row(key,recommendation),used_machines=used,baseline_status=base['status'],
+                origin_methods=';'.join(sorted({o['method'] for o in recommendation['origins']})),
+                origin_decisions=json.dumps(recommendation['origins'],sort_keys=True,separators=(',',':')),
                 selection_scope='minimum machine count within sealed certified family, then largest simultaneous lower bound; not global optimum or a new independent winner test'))
             for m in recommendation['machines']:
                 recommended_interventions.append(dict(case=key,machine=m,original_raw_mean_repair=.1*data['nominal_makespan']/100,
@@ -215,6 +218,7 @@ def report(registry):
         if recommendation is not None:
             chosen='изменения не требуются' if not recommendation['machines'] else 'ускорить ремонт станков '+', '.join(map(str,recommendation['machines']))
             lines+=['',f'Практический вариант: **{chosen}**. Нижняя общая граница вероятности выпуска: **{100*recommendation["lower"]:.2f}%**.',
+                'Набор зарегистрирован среди выходов: '+', '.join(sorted({o['method'] for o in recommendation['origins']}))+'.',
                 'Выбор сделан среди всех заранее зарегистрированных подтверждённых наборов по числу станков. '
                 'Общие интервалы сохраняют гарантию для выбранного набора; это не новый независимый тест победителя и не доказательство глобального минимума.']
         lines += [
