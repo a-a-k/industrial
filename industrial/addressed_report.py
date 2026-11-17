@@ -172,7 +172,7 @@ def report(registry):
             seen.add(key);folders[key]=folder;records.append(dict(validation_release=tag,validation_receipt=rcpt,**r))
         except Exception as error:missing.append(dict(release=tag,error=str(error)))
     missing.extend(dict(case=c,error='required addressed validation missing') for c in sorted(cases()-seen))
-    outcomes=[];decisions=[];summaries=[];gates={};prefixes=[];interventions=[]
+    outcomes=[];decisions=[];summaries=[];gates={};prefixes=[];interventions=[];recommendations=[];recommended_interventions=[]
     for key,cell in cells.items():
         instance=cell['training']['instance'];dest=ROOT/'plans'/instance
         if not dest.exists():
@@ -184,11 +184,24 @@ def report(registry):
         data=read_json(source/key/'schedule.json');first=r['training_cell']['training']['results'][0]
         D=by_mask[first['lazy']['selected']['mask']];B=by_mask[first['scan']['selected']['mask']];C=by_mask[first['cheap']['selected']['mask']]
         valid_sparse=[c for c in r['conditions'] if c['status']=='FEASIBLE' and 0<len(c['machines'])<used]
+        feasible=[c for c in r['conditions'] if c['status']=='FEASIBLE']
+        recommendation=min(feasible,key=lambda c:(len(c['machines']),-c['lower'],c['mask'])) if feasible else None
+        if recommendation is not None:
+            recommendations.append(dict(outcome_row(key,recommendation),used_machines=used,baseline_status=base['status'],
+                selection_scope='minimum machine count within sealed certified family, then largest simultaneous lower bound; not global optimum or a new independent winner test'))
+            for m in recommendation['machines']:
+                recommended_interventions.append(dict(case=key,machine=m,original_raw_mean_repair=.1*data['nominal_makespan']/100,
+                    required_raw_mean_repair=.1*data['nominal_makespan']*cfg['repair_multiplier']/100))
         summary=dict(case=key,used_machines=used,baseline_probability=base['probability'],baseline_status=base['status'],
             lazy_machines=';'.join(map(str,D['machines'])),lazy_k=len(D['machines']),lazy_probability=D['probability'],lazy_lower=D['lower'],lazy_status=D['status'],
             scan_k=len(B['machines']),scan_status=B['status'],cheap_k=len(C['machines']),cheap_status=C['status'],
             certified_sparse_options=len(valid_sparse),scientific_win=gate['scientific_win'],resource_win=gate['resource_win'],cost_win=gate['cost_win'],
-            complete_D_median_s=gate['complete_D_median_s'],complete_reference_median_s=gate['complete_reference_median_s'])
+            complete_D_median_s=gate['complete_D_median_s'],complete_reference_median_s=gate['complete_reference_median_s'],
+            recommended_mask=None if recommendation is None else recommendation['mask'],
+            recommended_k=None if recommendation is None else len(recommendation['machines']),
+            recommended_machines=None if recommendation is None else ';'.join(map(str,recommendation['machines'])),
+            recommended_probability=None if recommendation is None else recommendation['probability'],
+            recommended_lower=None if recommendation is None else recommendation['lower'])
         summaries.append(summary);case=ROOT/'cases'/key;case.mkdir(parents=True)
         csv_file(case/'conditions.csv',[outcome_row(key,c) for c in r['conditions']]);write_json(case/'comparison.json',gate)
         for row in rows:
@@ -198,7 +211,13 @@ def report(registry):
                     required_raw_mean_repair=.1*data['nominal_makespan']*cfg['repair_multiplier']/100,
                     distribution='exponential before rounding upward to0.05; unchanged working-period mean'))
         lines=[f'# {key}: адресный ремонт','',f'Используемых станков: {used}. Исходная доля партий вовремя: {100*base["probability"]:.2f}%, статус {base["status"]}.',
-            f'Научное преимущество по полному критерию: {gate["scientific_win"]}.',
+            f'Научное преимущество по полному критерию: {gate["scientific_win"]}.']
+        if recommendation is not None:
+            chosen='изменения не требуются' if not recommendation['machines'] else 'ускорить ремонт станков '+', '.join(map(str,recommendation['machines']))
+            lines+=['',f'Практический вариант: **{chosen}**. Нижняя общая граница вероятности выпуска: **{100*recommendation["lower"]:.2f}%**.',
+                'Выбор сделан среди всех заранее зарегистрированных подтверждённых наборов по числу станков. '
+                'Общие интервалы сохраняют гарантию для выбранного набора; это не новый независимый тест победителя и не доказательство глобального минимума.']
+        lines += [
             '', '## Все измеренные решения', '', '| Повтор | Стратегия | Станки | Число | Вовремя | Нижняя граница | Статус | Полная первая цена, s |',
             '|---:|---|---|---:|---:|---:|---|---:|']
         for row in rows:lines.append(f'| {row["repeat"]} | {row["method"]} | {row["machines"] or "нет"} | {row["k"]} | '
@@ -212,12 +231,13 @@ def report(registry):
         a=read_json(source/key/'analysis.json');lines+=['','## Ограничения для выбранных ресурсов','',
             '| Станок | Начало окна | Конец окна | Обязательное рабочее время | Допустимый простой в окне |',
             '|---:|---:|---:|---:|---:|']
-        for m in D['machines']:
+        illustrated=recommendation if recommendation is not None else D
+        for m in illustrated['machines']:
             w=next(w for w in a['windows'] if w['machine']==m)
             lines.append(f'| {m} | {w["begin"]/100:g} | {w["end"]/100:g} | {w["required"]/100:g} | {(w["end"]-w["begin"]-w["required"])/100:g} |')
         lines+=['','Если фактический простой превышает этот запас, необходимое условие выпуска партии нарушено. '
             'Прохождение показанных окон само по себе успех не гарантирует; достаточность выбранного набора проверяется фактическим выпуском.']
-        example=trajectory_example(folders[key],data,D['mask'])
+        example=trajectory_example(folders[key],data,illustrated['mask'])
         if example is not None:
             write_json(case/'example.json',example);lines+=['','## Пример из сохранённых траекторий','',
                 f'В траектории {example["scenario_id"]} до усиления опаздывали заказы {example["late_jobs_before"]}; после усиления вся партия успела.',
@@ -230,12 +250,16 @@ def report(registry):
                 'или доказательство единственной причины. Времена после наблюдаемого горизонта остаются неизвестными.']
         if r['law']=='F2SI':lines+=['F2SI предполагает общие случайные инновации и собственные renewal-часы; адресное действие не моделирует неизменяемый внешний общий простой.']
         (case/'REPORT_RU.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
-    for name,rows in [('conditions.csv',outcomes),('decisions.csv',decisions),('summary.csv',summaries),('named_costs.csv',prefixes),('interventions.csv',interventions)]:csv_file(ROOT/name,rows)
+    for name,rows in [('conditions.csv',outcomes),('decisions.csv',decisions),('summary.csv',summaries),('named_costs.csv',prefixes),
+        ('interventions.csv',interventions),('recommendations.csv',recommendations),('recommended_interventions.csv',recommended_interventions)]:csv_file(ROOT/name,rows)
     budget=read_json('output/budget.json');csv_file(ROOT/'campaign_jobs_at_report_start.csv',budget['jobs'])
     complete=not missing and seen==cases() and len(outcomes)==sealed['configurations'];wins=[s['case'] for s in summaries if s['scientific_win']]
     result=dict(technical_status='COMPLETE' if complete else 'PARTIAL',scientific_verdict='ESTABLISHED_ON_REGISTERED_CASES' if complete and wins else 'NOT_ESTABLISHED',
         completed_cases=len(seen),required_cases=20,completed_configurations=len(outcomes),required_configurations=sealed['configurations'],
         winning_cases=wins,cases_with_certified_sparse_options=sum(s['certified_sparse_options']>0 for s in summaries),summaries=summaries,
+        practical_recommendations=recommendations,
+        insufficient_cases_with_certified_sparse=sum(s['baseline_status']=='INFEASIBLE' and s['recommended_k'] is not None and 0<s['recommended_k']<s['used_machines'] for s in summaries),
+        insufficient_cases_without_certified_sparse=sum(s['baseline_status']=='INFEASIBLE' and not(s['recommended_k'] is not None and 0<s['recommended_k']<s['used_machines']) for s in summaries),
         baseline_status_counts={status:sum(s['baseline_status']==status for s in summaries) for status in ('FEASIBLE','INFEASIBLE','UNRESOLVED')},
         cases_baseline_not_certified_without_sparse=sum(s['baseline_status']!='FEASIBLE' and s['certified_sparse_options']==0 for s in summaries),
         execution_totals=dict(production_scalar_samples=sum(c['samples'] for c in outcomes),
@@ -251,10 +275,25 @@ def report(registry):
         f'Технический статус: **{result["technical_status"]}**, {len(seen)}/20 случаев, {len(outcomes)}/{sealed["configurations"]} сочетаний.',
         f'Случаев с подтверждённым непустым адресным набором: {result["cases_with_certified_sparse_options"]}/20. '
         f'Случаев, прошедших полный сравнительный gate: {len(wins)}. Научный итог: **{result["scientific_verdict"]}**.',
+        '',f'Исходных случаев, уже подтверждающих цель: {result["baseline_status_counts"]["FEASIBLE"]}. '
+        f'Из {result["baseline_status_counts"]["INFEASIBLE"]} подтверждённо недостаточных случаев '
+        f'для {result["insufficient_cases_with_certified_sparse"]} найдены достаточные наборы с усилением части станков. '
+        f'Для {result["insufficient_cases_without_certified_sparse"]} такой набор внутри зарегистрированного семейства не подтверждён.',
         '', 'На выбранных станках среднее экспоненциальной длительности ремонта до округления уменьшается до25%; '
         'остальные станки, весь план, партия и срок сохраняются. Достаточность подтверждается нижней биномиальной границей>=95% '
         'с одновременным покрытием всего заранее зафиксированного семейства не ниже95%.',
-        '', '| Случай | Исходно вовремя | Станков всего | Станки lazy, повтор0 | Число | Нижняя граница | Статус | scan / cheap | Научный gate | Подробности |',
+        '', '## Подтверждённые практические варианты','',
+        '| Случай | Исходно вовремя | Станков всего | Где ускорить ремонт | Число | Вовремя | Нижняя граница | Подробности |',
+        '|---|---:|---:|---|---:|---:|---:|---|']
+    for s in summaries:
+        if s['recommended_k'] is None:continue
+        lines.append(f'| {s["case"]} | {100*s["baseline_probability"]:.2f}% | {s["used_machines"]} | {s["recommended_machines"] or "не требуется"} | '
+            f'{s["recommended_k"]} | {100*s["recommended_probability"]:.2f}% | {100*s["recommended_lower"]:.2f}% | [Отчёт](cases/{s["case"]}/REPORT_RU.md) |')
+    lines+=['','Наборы выбраны среди всех заранее зарегистрированных вариантов с подтверждённой достаточностью. '
+        'Сравнивается число станков, затем нижняя общая граница. Это не независимая оценка после отбора и не глобальный минимум. '
+        'Если исходный вариант уже подтверждает95%, рекомендуются нулевые изменения.',
+        '', '## Сравнение стратегий','',
+        '| Случай | Исходно вовремя | Станков всего | Станки lazy, повтор0 | Число | Нижняя граница | Статус | scan / cheap | Научный gate | Подробности |',
         '|---|---:|---:|---|---:|---:|---|---|---|---|']
     for s in summaries:lines.append(f'| {s["case"]} | {100*s["baseline_probability"]:.2f}% | {s["used_machines"]} | {s["lazy_machines"] or "нет"} | '
         f'{s["lazy_k"]} | {100*s["lazy_lower"]:.2f}% | {s["lazy_status"]} | {s["scan_k"]} / {s["cheap_k"]} | {s["scientific_win"]} | [Отчёт](cases/{s["case"]}/REPORT_RU.md) |')
