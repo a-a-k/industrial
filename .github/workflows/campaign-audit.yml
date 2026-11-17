@@ -24,7 +24,9 @@ jobs:
       - name: Check the complete campaign budget
         run: python scripts/budget.py
       - name: Fetch the frozen evidence snapshot
-        run: git fetch --no-tags --depth=1 origin 15d0c12010acd42f46e9ae51e29b25f540bb41c3
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git fetch --no-tags --depth=1 origin 15d0c12010acd42f46e9ae51e29b25f540bb41c3
       - name: Reconcile archived outcomes and generate the audit
         run: python scripts/campaign_audit.py
       - name: Publish the evidence audit, including failed checks
