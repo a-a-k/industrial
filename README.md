@@ -1,5 +1,10 @@
 # Manufacturing crash tests and plan generation
 
+The [campaign audit](results/campaign-audit/REPORT_RU.md) reconciles the original
+E1–E6 protocol and subsequent extensions against completed evidence. It separates
+validated repair conditions from unconfirmed comparative advantages and lists
+the remaining measurement gaps. The audit adds no new simulations.
+
 The primary engineering task is to crash-test a fixed technologist-approved
 plan, explain weak places, and validate targeted corrections. The
 [fixed-plan diagnostic protocol](docs/FIXED_PLAN_DIAGNOSTICS_RU.md) separates

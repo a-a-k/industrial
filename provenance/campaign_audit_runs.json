@@ -1,0 +1,33 @@
+{
+  "version": "campaign-audit-v1-completed",
+  "evidence_commit": "15d0c12010acd42f46e9ae51e29b25f540bb41c3",
+  "audit_source": "0c649afca699f312a16a0d67ea8b4c563f236b29",
+  "attempts": [
+    {
+      "run": 44089890239,
+      "status": "failure",
+      "release": "campaign-audit-44089890239-1",
+      "reason": "Container Git safe.directory; stopped before evidence reconciliation",
+      "resolution": "Explicit safe.directory for the ephemeral Actions container"
+    },
+    {
+      "run": 44090325933,
+      "status": "success",
+      "release": "campaign-audit-44090325933-1"
+    }
+  ],
+  "report": "results/campaign-audit/REPORT_RU.md",
+  "machine_result": "results/campaign-audit/RESULT.json",
+  "archive_sha256": "28e0d5fd894408e4cd4978f72db5da11e86c69a7a799eedc332f22b55956da4a",
+  "checks_passed": 137,
+  "checks_failed": 0,
+  "manifest_files_matched": 925,
+  "manifest_files_mismatched": 0,
+  "manifest_entries_not_mirrored": 0,
+  "scientific_advantage": "NOT_ESTABLISHED",
+  "completed_runner_seconds_at_audit_start": 109155,
+  "reserved_runner_seconds_at_audit_start": 5400,
+  "current_audit_not_yet_completed_in_budget_snapshot": true,
+  "new_simulations": false,
+  "project_execution": "GitHub-hosted Actions only"
+}

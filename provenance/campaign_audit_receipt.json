@@ -1,0 +1,13 @@
+{
+  "name": "campaign-audit",
+  "commit": "0c649afca699f312a16a0d67ea8b4c563f236b29",
+  "run_id": "44090325933",
+  "archive_sha256": "28e0d5fd894408e4cd4978f72db5da11e86c69a7a799eedc332f22b55956da4a",
+  "parts": [
+    {
+      "name": "campaign-audit-44090325933-1.tar.gz",
+      "bytes": 66424,
+      "sha256": "28e0d5fd894408e4cd4978f72db5da11e86c69a7a799eedc332f22b55956da4a"
+    }
+  ]
+}

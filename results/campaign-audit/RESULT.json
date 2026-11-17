@@ -1,0 +1,871 @@
+{
+  "status": "COMPLETE",
+  "evidence_commit": "15d0c12010acd42f46e9ae51e29b25f540bb41c3",
+  "audit_source": "0c649afca699f312a16a0d67ea8b4c563f236b29",
+  "run_id": "44090325933",
+  "generated_utc": "2026-11-17T13:13:14.604527+00:00",
+  "scope": "Исходный E1–E6 и последующие расширения в a-a-k/industrial. Архивные отчёты сохраняют свои исходные статусы. Старый Industrial plan и чужие профили DES не объединяются с этой серией.",
+  "method": "Сверка протоколов, опубликованных JSON/CSV и отчётов; пересчёт сводных счётчиков из сохранённых таблиц, проверка хешей имеющихся файлов, состояний ключевых Actions и полного снимка runner-бюджета. Новые симуляции и повтор всей квалификации не выполняются. Независимая проверка интерпретации не обнаружила новых существенных численных ошибок; это не доказательство отсутствия всех дефектов кода.",
+  "checks": [
+    {
+      "name": "original_blocks",
+      "actual": {
+        "E1": "PASS",
+        "E2": "PASS",
+        "E3": "PASS",
+        "E4": "PASS",
+        "E5": "PASS",
+        "E6": "PARTIAL"
+      },
+      "expected": {
+        "E1": "PASS",
+        "E2": "PASS",
+        "E3": "PASS",
+        "E4": "PASS",
+        "E5": "PASS",
+        "E6": "PARTIAL"
+      },
+      "passed": true
+    },
+    {
+      "name": "original_DES_DAG_trajectories",
+      "actual": [
+        30720,
+        30720
+      ],
+      "expected": [
+        30720,
+        30720
+      ],
+      "passed": true
+    },
+    {
+      "name": "original_S1_trajectories",
+      "actual": 2560,
+      "expected": 2560,
+      "passed": true
+    },
+    {
+      "name": "original_engine_mismatches",
+      "actual": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "name": "original_completed_cost_cases",
+      "actual": 39,
+      "expected": 39,
+      "passed": true
+    },
+    {
+      "name": "original_timeouts",
+      "actual": 24,
+      "expected": 24,
+      "passed": true
+    },
+    {
+      "name": "extension_outputs",
+      "actual": 41,
+      "expected": 41,
+      "passed": true
+    },
+    {
+      "name": "extension_complete",
+      "actual": "COMPLETE",
+      "expected": "COMPLETE",
+      "passed": true
+    },
+    {
+      "name": "extension_preserves_limits",
+      "actual": false,
+      "expected": false,
+      "passed": true
+    },
+    {
+      "name": "end_to_end_completed_processes",
+      "actual": 648,
+      "expected": 648,
+      "passed": true
+    },
+    {
+      "name": "end_to_end_runner_pairs",
+      "actual": 36,
+      "expected": 36,
+      "passed": true
+    },
+    {
+      "name": "end_to_end_S1_slower",
+      "actual": 36,
+      "expected": 36,
+      "passed": true
+    },
+    {
+      "name": "end_to_end_first_use_S1_slower",
+      "actual": 36,
+      "expected": 36,
+      "passed": true
+    },
+    {
+      "name": "local_contrasts_include_zero",
+      "actual": 100,
+      "expected": 100,
+      "passed": true
+    },
+    {
+      "name": "local_advantages",
+      "actual": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "name": "local_conditions",
+      "actual": 20,
+      "expected": 20,
+      "passed": true
+    },
+    {
+      "name": "local_noop",
+      "actual": 7,
+      "expected": 7,
+      "passed": true
+    },
+    {
+      "name": "inverse_configurations",
+      "actual": 288,
+      "expected": 288,
+      "passed": true
+    },
+    {
+      "name": "inverse_cases",
+      "actual": 20,
+      "expected": 20,
+      "passed": true
+    },
+    {
+      "name": "inverse_cases_with_feasible",
+      "actual": 20,
+      "expected": 20,
+      "passed": true
+    },
+    {
+      "name": "inverse_minimum_proved_cases",
+      "actual": 16,
+      "expected": 16,
+      "passed": true
+    },
+    {
+      "name": "inverse_frontier_changed_plans",
+      "actual": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "name": "addressed_configs_in_csv",
+      "actual": 86,
+      "expected": 86,
+      "passed": true
+    },
+    {
+      "name": "addressed_decisions_in_csv",
+      "actual": 300,
+      "expected": 300,
+      "passed": true
+    },
+    {
+      "name": "addressed_cases_in_csv",
+      "actual": 20,
+      "expected": 20,
+      "passed": true
+    },
+    {
+      "name": "addressed_external_samples",
+      "actual": 704512,
+      "expected": 704512,
+      "passed": true
+    },
+    {
+      "name": "addressed_baseline_status",
+      "actual": {
+        "FEASIBLE": 4,
+        "INFEASIBLE": 16,
+        "UNRESOLVED": 0
+      },
+      "expected": {
+        "FEASIBLE": 4,
+        "INFEASIBLE": 16,
+        "UNRESOLVED": 0
+      },
+      "passed": true
+    },
+    {
+      "name": "addressed_comparison_triplets",
+      "actual": 100,
+      "expected": 100,
+      "passed": true
+    },
+    {
+      "name": "addressed_equal_cardinalities",
+      "actual": 100,
+      "expected": 100,
+      "passed": true
+    },
+    {
+      "name": "addressed_confirmed_wins",
+      "actual": [],
+      "expected": [],
+      "passed": true
+    },
+    {
+      "name": "addressed_insufficient_with_sparse",
+      "actual": 15,
+      "expected": 15,
+      "passed": true
+    },
+    {
+      "name": "example_successes",
+      "actual": 7938,
+      "expected": 7938,
+      "passed": true
+    },
+    {
+      "name": "example_origin",
+      "actual": "slack",
+      "expected": "slack",
+      "passed": true
+    },
+    {
+      "name": "example_machines",
+      "actual": "0;1;2",
+      "expected": "0;1;2",
+      "passed": true
+    },
+    {
+      "name": "mirrored_manifest_hash_mismatches",
+      "actual": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "name": "source_exists:README.md",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:README.md",
+      "actual": "152185b6a9ad7eaab222fc750e5102ad6ef981da64c1ef035db9f380ab7f5d9c",
+      "expected": "152185b6a9ad7eaab222fc750e5102ad6ef981da64c1ef035db9f380ab7f5d9c",
+      "passed": true
+    },
+    {
+      "name": "source_exists:docs/ADDRESSED_REPAIR_RU.md",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:docs/ADDRESSED_REPAIR_RU.md",
+      "actual": "0dedb356d2f86b662aa1e8b73371b8745c8875c5f2b874b9959c11e45ec2a43f",
+      "expected": "0dedb356d2f86b662aa1e8b73371b8745c8875c5f2b874b9959c11e45ec2a43f",
+      "passed": true
+    },
+    {
+      "name": "source_exists:docs/END_TO_END_CRITERION_RU.md",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:docs/END_TO_END_CRITERION_RU.md",
+      "actual": "c0af1149b71ecb5ec83c786a75ffa4af5c587bcc35ae8e60558fe6d1a540d372",
+      "expected": "c0af1149b71ecb5ec83c786a75ffa4af5c587bcc35ae8e60558fe6d1a540d372",
+      "passed": true
+    },
+    {
+      "name": "source_exists:docs/FIXED_PLAN_DIAGNOSTICS_RU.md",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:docs/FIXED_PLAN_DIAGNOSTICS_RU.md",
+      "actual": "ccb19472a48988015632198ae918ab6f288a9388cda1afd45e0d8b476ebb61ea",
+      "expected": "ccb19472a48988015632198ae918ab6f288a9388cda1afd45e0d8b476ebb61ea",
+      "passed": true
+    },
+    {
+      "name": "source_exists:docs/FIXED_PLAN_REINFORCEMENT_RU.md",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:docs/FIXED_PLAN_REINFORCEMENT_RU.md",
+      "actual": "fcf54da177fdaef9147a42a5af21bf234688fe9ef5c579a60df5cc1b89ea2aa9",
+      "expected": "fcf54da177fdaef9147a42a5af21bf234688fe9ef5c579a60df5cc1b89ea2aa9",
+      "passed": true
+    },
+    {
+      "name": "source_exists:docs/INVERSE_CONDITIONS_RU.md",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:docs/INVERSE_CONDITIONS_RU.md",
+      "actual": "e886cfd0109e4d2c3a91d9fc800036c7b6d8d4da611c903896104728920ebe8b",
+      "expected": "e886cfd0109e4d2c3a91d9fc800036c7b6d8d4da611c903896104728920ebe8b",
+      "passed": true
+    },
+    {
+      "name": "source_exists:docs/PLAN_GENERATION.md",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:docs/PLAN_GENERATION.md",
+      "actual": "1a3d525e2190d7141cc97b4667b04f6b19f3442884a378db6b2113b399040a0e",
+      "expected": "1a3d525e2190d7141cc97b4667b04f6b19f3442884a378db6b2113b399040a0e",
+      "passed": true
+    },
+    {
+      "name": "source_exists:docs/PROTOCOL.md",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:docs/PROTOCOL.md",
+      "actual": "d24dd892d174b38c358046b8807cb3733e1e79f08ef49be4c2c3ee63a9e68097",
+      "expected": "d24dd892d174b38c358046b8807cb3733e1e79f08ef49be4c2c3ee63a9e68097",
+      "passed": true
+    },
+    {
+      "name": "source_exists:docs/RESULT_SCOPE_RU.md",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:docs/RESULT_SCOPE_RU.md",
+      "actual": "95693fcac52022e231ed43f4bc38b3c8c2ef70d1f1c346304599649a19b97f49",
+      "expected": "95693fcac52022e231ed43f4bc38b3c8c2ef70d1f1c346304599649a19b97f49",
+      "passed": true
+    },
+    {
+      "name": "source_exists:industrial/addressed_report.py",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:industrial/addressed_report.py",
+      "actual": "aa58931468795d5922433ab813e2765880c60aedfe64cdd31f3a9019c841be49",
+      "expected": "aa58931468795d5922433ab813e2765880c60aedfe64cdd31f3a9019c841be49",
+      "passed": true
+    },
+    {
+      "name": "source_exists:provenance/addressed_repair.json",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:provenance/addressed_repair.json",
+      "actual": "0450496af87c434321f37a44361b9b43063e347f24011835578f2ce19ddbf019",
+      "expected": "0450496af87c434321f37a44361b9b43063e347f24011835578f2ce19ddbf019",
+      "passed": true
+    },
+    {
+      "name": "source_exists:results/addressed-repair/REPORT_RU.md",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:results/addressed-repair/REPORT_RU.md",
+      "actual": "e97dd6c1d818c2422b178890af0ef0d0423526f17a76acea1a4345d963fd4215",
+      "expected": "e97dd6c1d818c2422b178890af0ef0d0423526f17a76acea1a4345d963fd4215",
+      "passed": true
+    },
+    {
+      "name": "source_exists:results/addressed-repair/RESULT.json",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:results/addressed-repair/RESULT.json",
+      "actual": "5f391804bd8341725d07d425bf94e1a1d5fd30e07fa57f5631809459c2de3a99",
+      "expected": "5f391804bd8341725d07d425bf94e1a1d5fd30e07fa57f5631809459c2de3a99",
+      "passed": true
+    },
+    {
+      "name": "source_exists:results/addressed-repair/conditions.csv",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:results/addressed-repair/conditions.csv",
+      "actual": "b04981bd0205ece379ceac37b6552147f891d298abbef971d6bfbe0b8ab2cbbc",
+      "expected": "b04981bd0205ece379ceac37b6552147f891d298abbef971d6bfbe0b8ab2cbbc",
+      "passed": true
+    },
+    {
+      "name": "source_exists:results/addressed-repair/decisions.csv",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:results/addressed-repair/decisions.csv",
+      "actual": "2bd4cd4a3ecc64c3f084cee284ab28f39324d17434c4d78f09445bcf9a233d46",
+      "expected": "2bd4cd4a3ecc64c3f084cee284ab28f39324d17434c4d78f09445bcf9a233d46",
+      "passed": true
+    },
+    {
+      "name": "source_exists:results/addressed-repair/recommendations.csv",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:results/addressed-repair/recommendations.csv",
+      "actual": "a5832adc7d734fa98dec90975fd70e056ecb1a30d01b79eff93e51b3903cb99e",
+      "expected": "a5832adc7d734fa98dec90975fd70e056ecb1a30d01b79eff93e51b3903cb99e",
+      "passed": true
+    },
+    {
+      "name": "source_exists:results/cp-prefix/REPORT_RU.md",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:results/cp-prefix/REPORT_RU.md",
+      "actual": "8304d056b5c2afaf7e25c5e8b0242974d53a5eec7298bd2eaaf4629d0e08414f",
+      "expected": "8304d056b5c2afaf7e25c5e8b0242974d53a5eec7298bd2eaaf4629d0e08414f",
+      "passed": true
+    },
+    {
+      "name": "source_exists:results/cpsat/REPORT_RU.md",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:results/cpsat/REPORT_RU.md",
+      "actual": "c9ad0ef16fbaab5edab98c7272d5cae0109504f40f0e9dca72b5a8372ed07da7",
+      "expected": "c9ad0ef16fbaab5edab98c7272d5cae0109504f40f0e9dca72b5a8372ed07da7",
+      "passed": true
+    },
+    {
+      "name": "source_exists:results/decision-options/REPORT_RU.md",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:results/decision-options/REPORT_RU.md",
+      "actual": "105dcd78e293e6f36c78871526d57166c93399a57d7a110e47d4d0222cca95d6",
+      "expected": "105dcd78e293e6f36c78871526d57166c93399a57d7a110e47d4d0222cca95d6",
+      "passed": true
+    },
+    {
+      "name": "source_exists:results/end-to-end/PRIMARY_RESULT.json",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:results/end-to-end/PRIMARY_RESULT.json",
+      "actual": "6732d0e3ade2922ca0ab271bb86cd097765a3b6a323ca5c6b644ce963cd5add3",
+      "expected": "6732d0e3ade2922ca0ab271bb86cd097765a3b6a323ca5c6b644ce963cd5add3",
+      "passed": true
+    },
+    {
+      "name": "source_exists:results/end-to-end/REPORT_RU.md",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:results/end-to-end/REPORT_RU.md",
+      "actual": "6e02cb9f8c18c27fba501c91071fda83cd98f9063dd92367f55076dbe9d8eff6",
+      "expected": "6e02cb9f8c18c27fba501c91071fda83cd98f9063dd92367f55076dbe9d8eff6",
+      "passed": true
+    },
+    {
+      "name": "source_exists:results/fixed-plan-reinforcement/COMPARISON_CLASSES_RU.md",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:results/fixed-plan-reinforcement/COMPARISON_CLASSES_RU.md",
+      "actual": "ed6f0cbff3d54a03c7315e751412d35e957f51d52cf9ada91d49e601c7dca7c1",
+      "expected": "ed6f0cbff3d54a03c7315e751412d35e957f51d52cf9ada91d49e601c7dca7c1",
+      "passed": true
+    },
+    {
+      "name": "source_exists:results/fixed-plan-reinforcement/REPORT_RU.md",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:results/fixed-plan-reinforcement/REPORT_RU.md",
+      "actual": "980740c4b11c70de5332841e889dbdf3453bf63eca4e098db148a1e24840620b",
+      "expected": "980740c4b11c70de5332841e889dbdf3453bf63eca4e098db148a1e24840620b",
+      "passed": true
+    },
+    {
+      "name": "source_exists:results/fixed-plan-reinforcement/VERDICT.json",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:results/fixed-plan-reinforcement/VERDICT.json",
+      "actual": "538e00487f0fa1cb4287234b011d329e742087c99ede3859e1a94fcae4a854f3",
+      "expected": "538e00487f0fa1cb4287234b011d329e742087c99ede3859e1a94fcae4a854f3",
+      "passed": true
+    },
+    {
+      "name": "source_exists:results/fixed-plan-reinforcement/summary.csv",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:results/fixed-plan-reinforcement/summary.csv",
+      "actual": "1ae88d898dfabd6dcac54518719921fcd6ef41a676bd4c74798867cd2cd0be36",
+      "expected": "1ae88d898dfabd6dcac54518719921fcd6ef41a676bd4c74798867cd2cd0be36",
+      "passed": true
+    },
+    {
+      "name": "source_exists:results/implementation-audit/AUDIT_RU.md",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:results/implementation-audit/AUDIT_RU.md",
+      "actual": "605b20eb7c381e83a6df1b3cbaf057f6989fba32f982534c967b586f182f21cf",
+      "expected": "605b20eb7c381e83a6df1b3cbaf057f6989fba32f982534c967b586f182f21cf",
+      "passed": true
+    },
+    {
+      "name": "source_exists:results/implementation-audit/RESULT.json",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:results/implementation-audit/RESULT.json",
+      "actual": "66e6ba9f0c7933df259813eb79923bbea47098d67bed0e168cfc72f5a0b53081",
+      "expected": "66e6ba9f0c7933df259813eb79923bbea47098d67bed0e168cfc72f5a0b53081",
+      "passed": true
+    },
+    {
+      "name": "source_exists:results/industrial/REPORT_RU.md",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:results/industrial/REPORT_RU.md",
+      "actual": "066d60c2a134351fea9e0f0365e3944d2b50f11e2ffa708051c6e03b956f3aa2",
+      "expected": "066d60c2a134351fea9e0f0365e3944d2b50f11e2ffa708051c6e03b956f3aa2",
+      "passed": true
+    },
+    {
+      "name": "source_exists:results/industrial/RESULT.json",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:results/industrial/RESULT.json",
+      "actual": "3d3a7739d6df4ed58b511c0f8aaf3ad28a5fb20b6b6e1e17e1a7935896240f6c",
+      "expected": "3d3a7739d6df4ed58b511c0f8aaf3ad28a5fb20b6b6e1e17e1a7935896240f6c",
+      "passed": true
+    },
+    {
+      "name": "source_exists:results/inverse-conditions/REPORT_RU.md",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:results/inverse-conditions/REPORT_RU.md",
+      "actual": "0e1997512ec6b424ea634f9c495777351d8a37ac168cc43c6d1e7fce8393080a",
+      "expected": "0e1997512ec6b424ea634f9c495777351d8a37ac168cc43c6d1e7fce8393080a",
+      "passed": true
+    },
+    {
+      "name": "source_exists:results/inverse-conditions/RESULT.json",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:results/inverse-conditions/RESULT.json",
+      "actual": "4b661bc0bcdb7c80fd02852ae67c7a92cca0b81af05ec2d4d9eed2b396b4b265",
+      "expected": "4b661bc0bcdb7c80fd02852ae67c7a92cca0b81af05ec2d4d9eed2b396b4b265",
+      "passed": true
+    },
+    {
+      "name": "source_exists:results/inverse-conditions/frontier.csv",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:results/inverse-conditions/frontier.csv",
+      "actual": "69e70d52337b6f63fa251a17a591a365c6ba1ca0223b684cd05c3236fd30a59b",
+      "expected": "69e70d52337b6f63fa251a17a591a365c6ba1ca0223b684cd05c3236fd30a59b",
+      "passed": true
+    },
+    {
+      "name": "source_exists:results/objectives/REPORT_RU.md",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:results/objectives/REPORT_RU.md",
+      "actual": "63d09f76d8a1902cd566962000139a0ca6d9de5599427ee343d68fec7ae24cc1",
+      "expected": "63d09f76d8a1902cd566962000139a0ca6d9de5599427ee343d68fec7ae24cc1",
+      "passed": true
+    },
+    {
+      "name": "source_exists:results/planner-comparison/REPORT_RU.md",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:results/planner-comparison/REPORT_RU.md",
+      "actual": "1133e853294dd2e19e84716fb135b57adab06a6c0da4150b6e407d99d11f0111",
+      "expected": "1133e853294dd2e19e84716fb135b57adab06a6c0da4150b6e407d99d11f0111",
+      "passed": true
+    },
+    {
+      "name": "source_exists:results/timeout-extension/REPORT_RU.md",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:results/timeout-extension/REPORT_RU.md",
+      "actual": "b2d9ea55a229f268d5ada5835c2f26db9113aaa11402da07c33833609c3e71d7",
+      "expected": "b2d9ea55a229f268d5ada5835c2f26db9113aaa11402da07c33833609c3e71d7",
+      "passed": true
+    },
+    {
+      "name": "source_exists:results/timeout-extension/RESOURCE_NOTE_RU.md",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:results/timeout-extension/RESOURCE_NOTE_RU.md",
+      "actual": "a88ccadca9664f839d92b86cc6ef8b1f3f7aeaed2b9f2f470057371bcf93019c",
+      "expected": "a88ccadca9664f839d92b86cc6ef8b1f3f7aeaed2b9f2f470057371bcf93019c",
+      "passed": true
+    },
+    {
+      "name": "source_exists:results/timeout-extension/RESULT.json",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "source_unchanged_since_evidence_commit:results/timeout-extension/RESULT.json",
+      "actual": "3e5f529a601d0a2639ff886602bbd26facacf305695b90f09634b5c7e61f19ed",
+      "expected": "3e5f529a601d0a2639ff886602bbd26facacf305695b90f09634b5c7e61f19ed",
+      "passed": true
+    },
+    {
+      "name": "run_complete:43722003191",
+      "actual": "completed",
+      "expected": "completed",
+      "passed": true
+    },
+    {
+      "name": "run_conclusion:43722003191",
+      "actual": "success",
+      "expected": "success",
+      "passed": true
+    },
+    {
+      "name": "run_complete:43726894373",
+      "actual": "completed",
+      "expected": "completed",
+      "passed": true
+    },
+    {
+      "name": "run_conclusion:43726894373",
+      "actual": "success",
+      "expected": "success",
+      "passed": true
+    },
+    {
+      "name": "run_complete:43742757573",
+      "actual": "completed",
+      "expected": "completed",
+      "passed": true
+    },
+    {
+      "name": "run_conclusion:43742757573",
+      "actual": "success",
+      "expected": "success",
+      "passed": true
+    },
+    {
+      "name": "run_complete:43755919167",
+      "actual": "completed",
+      "expected": "completed",
+      "passed": true
+    },
+    {
+      "name": "run_conclusion:43755919167",
+      "actual": "success",
+      "expected": "success",
+      "passed": true
+    },
+    {
+      "name": "run_complete:43735155027",
+      "actual": "completed",
+      "expected": "completed",
+      "passed": true
+    },
+    {
+      "name": "run_conclusion:43735155027",
+      "actual": "success",
+      "expected": "success",
+      "passed": true
+    },
+    {
+      "name": "run_complete:43864112251",
+      "actual": "completed",
+      "expected": "completed",
+      "passed": true
+    },
+    {
+      "name": "run_conclusion:43864112251",
+      "actual": "success",
+      "expected": "success",
+      "passed": true
+    },
+    {
+      "name": "run_complete:43890891895",
+      "actual": "completed",
+      "expected": "completed",
+      "passed": true
+    },
+    {
+      "name": "run_conclusion:43890891895",
+      "actual": "success",
+      "expected": "success",
+      "passed": true
+    },
+    {
+      "name": "run_complete:44038970227",
+      "actual": "completed",
+      "expected": "completed",
+      "passed": true
+    },
+    {
+      "name": "run_conclusion:44038970227",
+      "actual": "failure",
+      "expected": "failure",
+      "passed": true
+    },
+    {
+      "name": "run_complete:44041045077",
+      "actual": "completed",
+      "expected": "completed",
+      "passed": true
+    },
+    {
+      "name": "run_conclusion:44041045077",
+      "actual": "success",
+      "expected": "success",
+      "passed": true
+    },
+    {
+      "name": "run_complete:44041517142",
+      "actual": "completed",
+      "expected": "completed",
+      "passed": true
+    },
+    {
+      "name": "run_conclusion:44041517142",
+      "actual": "success",
+      "expected": "success",
+      "passed": true
+    },
+    {
+      "name": "run_complete:44043172865",
+      "actual": "completed",
+      "expected": "completed",
+      "passed": true
+    },
+    {
+      "name": "run_conclusion:44043172865",
+      "actual": "success",
+      "expected": "success",
+      "passed": true
+    },
+    {
+      "name": "run_complete:44043487405",
+      "actual": "completed",
+      "expected": "completed",
+      "passed": true
+    },
+    {
+      "name": "run_conclusion:44043487405",
+      "actual": "success",
+      "expected": "success",
+      "passed": true
+    },
+    {
+      "name": "run_complete:44050953277",
+      "actual": "completed",
+      "expected": "completed",
+      "passed": true
+    },
+    {
+      "name": "run_conclusion:44050953277",
+      "actual": "success",
+      "expected": "success",
+      "passed": true
+    },
+    {
+      "name": "run_complete:44089890239",
+      "actual": "completed",
+      "expected": "completed",
+      "passed": true
+    },
+    {
+      "name": "run_conclusion:44089890239",
+      "actual": "failure",
+      "expected": "failure",
+      "passed": true
+    }
+  ],
+  "integrity": {
+    "match": 925,
+    "mismatch": 0,
+    "not_mirrored": 0
+  },
+  "scientific_advantage": "NOT_ESTABLISHED",
+  "current_audit_job_excluded_from_completed_budget": true,
+  "completed_runner_seconds_at_audit_start": 109155.0,
+  "reserved_runner_seconds_at_audit_start": 5400.0,
+  "runner_limit_seconds": 259200
+}

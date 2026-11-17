@@ -1,0 +1,142 @@
+[
+  {
+    "id": 43722003191,
+    "head_sha": "bcf73bd50c35b8f1443d6a4de66be74c7136a053",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/a-a-k/industrial/actions/runs/43722003191",
+    "run_attempt": 1,
+    "created_at": "2026-11-15T14:00:51Z",
+    "updated_at": "2026-11-15T14:02:20Z"
+  },
+  {
+    "id": 43726894373,
+    "head_sha": "ca68a04f690273bfeec5c167cfdb58a1669a6f12",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/a-a-k/industrial/actions/runs/43726894373",
+    "run_attempt": 1,
+    "created_at": "2026-11-15T14:54:25Z",
+    "updated_at": "2026-11-15T15:45:47Z"
+  },
+  {
+    "id": 43742757573,
+    "head_sha": "6aec80338253ba03035d6cce999ac0a52b38c5e7",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/a-a-k/industrial/actions/runs/43742757573",
+    "run_attempt": 1,
+    "created_at": "2026-11-15T17:44:01Z",
+    "updated_at": "2026-11-15T17:46:48Z"
+  },
+  {
+    "id": 43755919167,
+    "head_sha": "b439a6c85ceed18bab2ed5e404f6ae614901a1b0",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/a-a-k/industrial/actions/runs/43755919167",
+    "run_attempt": 1,
+    "created_at": "2026-11-15T20:04:03Z",
+    "updated_at": "2026-11-15T20:29:40Z"
+  },
+  {
+    "id": 43735155027,
+    "head_sha": "9681a159051326cecca3bd612bdeed231eb5f7f0",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/a-a-k/industrial/actions/runs/43735155027",
+    "run_attempt": 1,
+    "created_at": "2026-11-15T16:22:53Z",
+    "updated_at": "2026-11-15T16:24:12Z"
+  },
+  {
+    "id": 43864112251,
+    "head_sha": "b5a33b9783ce68feec4a9261e72e1a5840f3d704",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/a-a-k/industrial/actions/runs/43864112251",
+    "run_attempt": 1,
+    "created_at": "2026-11-16T12:10:11Z",
+    "updated_at": "2026-11-16T12:12:13Z"
+  },
+  {
+    "id": 43890891895,
+    "head_sha": "b8992840667937acd7e27fc6f653b9a17639535a",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/a-a-k/industrial/actions/runs/43890891895",
+    "run_attempt": 1,
+    "created_at": "2026-11-16T14:55:27Z",
+    "updated_at": "2026-11-16T14:57:31Z"
+  },
+  {
+    "id": 44038970227,
+    "head_sha": "968e9eba7866a62080a2221acc41245bb729f3db",
+    "status": "completed",
+    "conclusion": "failure",
+    "html_url": "https://github.com/a-a-k/industrial/actions/runs/44038970227",
+    "run_attempt": 1,
+    "created_at": "2026-11-17T07:28:25Z",
+    "updated_at": "2026-11-17T07:31:41Z"
+  },
+  {
+    "id": 44041045077,
+    "head_sha": "3b198d0f191ce5b624ff94e4575226f12c1b1dc7",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/a-a-k/industrial/actions/runs/44041045077",
+    "run_attempt": 1,
+    "created_at": "2026-11-17T07:44:41Z",
+    "updated_at": "2026-11-17T07:47:12Z"
+  },
+  {
+    "id": 44041517142,
+    "head_sha": "3b198d0f191ce5b624ff94e4575226f12c1b1dc7",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/a-a-k/industrial/actions/runs/44041517142",
+    "run_attempt": 1,
+    "created_at": "2026-11-17T07:48:17Z",
+    "updated_at": "2026-11-17T08:00:36Z"
+  },
+  {
+    "id": 44043172865,
+    "head_sha": "ff5e080390e0fa7f4219c99fae4f6ddb9f0c217a",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/a-a-k/industrial/actions/runs/44043172865",
+    "run_attempt": 1,
+    "created_at": "2026-11-17T08:01:03Z",
+    "updated_at": "2026-11-17T08:02:51Z"
+  },
+  {
+    "id": 44043487405,
+    "head_sha": "ff5e080390e0fa7f4219c99fae4f6ddb9f0c217a",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/a-a-k/industrial/actions/runs/44043487405",
+    "run_attempt": 1,
+    "created_at": "2026-11-17T08:03:24Z",
+    "updated_at": "2026-11-17T08:21:30Z"
+  },
+  {
+    "id": 44050953277,
+    "head_sha": "3a7a835b16a7632b61aebe919ff77a7912ac5e80",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/a-a-k/industrial/actions/runs/44050953277",
+    "run_attempt": 1,
+    "created_at": "2026-11-17T08:55:58Z",
+    "updated_at": "2026-11-17T08:58:10Z"
+  },
+  {
+    "id": 44089890239,
+    "head_sha": "e43dd85ac2be6d3e08bc70d4a3aa9f7632bd50e0",
+    "status": "completed",
+    "conclusion": "failure",
+    "html_url": "https://github.com/a-a-k/industrial/actions/runs/44089890239",
+    "run_attempt": 1,
+    "created_at": "2026-11-17T13:09:18Z",
+    "updated_at": "2026-11-17T13:11:00Z"
+  }
+]

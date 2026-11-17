@@ -1,0 +1,10 @@
+{
+  "REPORT_RU.md": "209feb2116e4153ed5b22be04a056b55078cfcd45ef794b9ed5c63956b0fd520",
+  "RESULT.json": "3329e7c05adb99fe8d1158d37f42c8c0157251beb8a31144089e628917407013",
+  "audit_specification.json": "d58b80bc7b60bbb854b032bf59289625abae4703050f7d22bd7a3106b882b5d9",
+  "budget.json": "f03d90b3f16e155316af0ccd65e4bba9ee419fda15528a99d342ad7dda751645",
+  "budget_at_audit_start.json": "f03d90b3f16e155316af0ccd65e4bba9ee419fda15528a99d342ad7dda751645",
+  "manifest_checks.json": "10fb7b59735fcedfcfd74bd29193a22ae2ed7058498730824ea3466bf5e18095",
+  "source_inventory.json": "8c078a5c33f34f2867c4b0d701739be07dc984ab38a58f5068b986b98011dc3d",
+  "workflow_runs.json": "63ac874f0220645dfe1db7d68b7e1b97bfb40a538b7382638e29b1d05cbba96c"
+}
