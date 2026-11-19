@@ -91,7 +91,7 @@ def size(domains):
                 over_memory_bitpacked=(cells + 7) // 8 > SPEC['dense_memory_budget_bytes'])
 
 
-def census(data, name, fixed):
+def census(data, name, fixed, reduced=False):
     ops = data['operations']
     delta = data['delta']
     domain_step = delta if fixed else math.gcd(*(a['work'] for o in ops for a in o['alternatives']))
@@ -116,11 +116,32 @@ def census(data, name, fixed):
                 weights[a['machine']] += Fraction(a['work'], len(o['alternatives']))
     block = partition(weights, name)
     check('four_nonempty_machine_blocks', set(block) == set(range(4)))
+    scope_edges = set(edges)
+    removed = set()
+    if reduced:
+        order, _, children = topological(ops, edges)
+        reachable = [0] * len(ops)
+        for i in reversed(order):
+            for j in children[i]:
+                reachable[i] |= (1 << j) | reachable[j]
+        technological = {(p, o['id']) for o in ops for p in o['predecessors']}
+        for a, b in technological:
+            if block[ops[a]['machine']] == block[ops[b]['machine']]:
+                continue
+            if any(c != b and reachable[c] & (1 << b) for c in children[a]):
+                removed.add((a, b))
+        scope_edges -= removed
+        new_order, _, new_children = topological(ops, scope_edges)
+        new_reachable = [0] * len(ops)
+        for i in reversed(new_order):
+            for j in new_children[i]:
+                new_reachable[i] |= (1 << j) | new_reachable[j]
+        check('reduced_graph_preserves_all_reachability', reachable == new_reachable)
     scopes = [set() for _ in ops]
     if fixed:
         for o in ops:
             scopes[o['id']].add(block[o['machine']])
-        for a, b in edges:
+        for a, b in scope_edges:
             scopes[a].add(block[ops[b]['machine']])
     else:
         # Raw technological factors never use the frozen queues, assignments or planned starts.
@@ -168,7 +189,9 @@ def census(data, name, fixed):
             plain[i] = max(ops[i]['release'], max((plain[p] + work[p] for p in parents[i]), default=0))
         planned_redundant = all(o['planned_start'] <= plain[o['id']] for o in ops)
         check('healthy_ends_inside_windows', all(start[i] + work[i] <= latest[i] for i in range(len(ops))))
-    return dict(instance=data['dataset_id'], profile='fixed_execution' if fixed else 'raw_synthesis',
+    return dict(instance=data['dataset_id'],
+                profile='fixed_reduced_execution' if reduced else 'fixed_execution' if fixed else 'raw_synthesis',
+                removed_transitive_cross_edges=sorted(removed),
                 partition=name, deadline_ticks=deadline, delta=delta, domain_step=domain_step,
                 machines=len(data['queues']), operations=len(ops),
                 blocks=blocks, pair_interfaces=pairs, boundary_operations=boundary,
@@ -219,10 +242,10 @@ try:
                   and [o['id'] for o in local if not outgoing[o['id']]] == [job['final_operation']])
         inputs.append(dict(instance=instance, sha256=sha, operations=len(ops), jobs=len(data['jobs']),
                            machines=len(data['queues']), max_technological_outdegree=max(outgoing)))
-        for fixed in (True, False):
+        for fixed, reduced in ((True, False), (True, True), (False, False)):
             for name in SPEC['partitions']:
-                cases.append(census(data, name, fixed))
-    check('registered_cases_complete', len(cases) == 60)
+                cases.append(census(data, name, fixed, reduced))
+    check('registered_cases_complete', len(cases) == 90)
     best = []
     for instance in SPEC['instances']:
         for profile in SPEC['profiles']:
@@ -245,7 +268,7 @@ try:
         writer.writeheader()
         writer.writerows(best)
     result = dict(status='ANALYSIS_COMPLETE', scientific_verdict='NOT_ESTABLISHED',
-                  solver_prototype='NOT_STARTED', completed_profiles=len(cases), expected_profiles=60,
+                  solver_prototype='NOT_STARTED', completed_profiles=len(cases), expected_profiles=90,
                   checks=CHECKS, input_commit=SPEC['input_commit'], source_commit=os.environ['GITHUB_SHA'],
                   run_id=os.environ['GITHUB_RUN_ID'], census_wall_s=time.perf_counter() - START,
                   mathematical_factorization='EXACT_FOR_FIXED_F1_WITH_FULL_BOUNDARY_TIMES',
@@ -255,7 +278,7 @@ try:
     save('RESULT.json', result)
     save('profile.json', SPEC)
     report = ['# Проверка пучковой композиции и алгебраической склейки', '',
-              '**Структурный анализ завершён: 60/60 профилей, десять замороженных задач. Новый решатель и новые виртуальные прогоны не запускались. Сравнительное преимущество остаётся NOT_ESTABLISHED.**', '',
+              '**Структурный анализ завершён: 90/90 профилей, десять замороженных задач. Новый решатель и новые виртуальные прогоны не запускались. Сравнительное преимущество остаётся NOT_ESTABLISHED.**', '',
               'Математическая конструкция точной склейки фиксированного исполнения установлена в [протоколе](https://github.com/a-a-k/industrial/blob/' + os.environ['GITHUB_SHA'] + '/docs/COMPOSITIONAL_FEASIBILITY_RU.md). При F1 блок владеет полным календарём своих станков и передаёт точные времена завершений на границах. Уникальность рекурсии DAG исключает повторный счёт одной истории. Общие отказы требуют отдельного общего вероятностного фактора.', '',
               '## Размеры выбранного координатного представления', '',
               'Для каждого профиля показан лучший из ТРЁХ заранее выбранных способов по максимальному размеру плотной локальной таблицы. Это не оптимальное разбиение и не нижняя граница сжатого представления. 10^k обозначает число ячеек максимальной таблицы, а не время расчёта.', '',
@@ -264,8 +287,10 @@ try:
     for b in best:
         report.append(f'| {b["instance"]} | {b["profile"]} | {b["selected_partition"]} | {b["boundary_operations"]} | 10^{b["max_log10_cells"]:.1f} | {b["multiblock_variables"]} | {"да" if b["dense_8byte_fits"] else "нет"} |')
     fixed_count = sum(any(c['dense_8byte_fits_all_blocks'] for c in cases if c['instance'] == i and c['profile'] == 'fixed_execution') for i in SPEC['instances'])
+    reduced_count = sum(any(c['dense_8byte_fits_all_blocks'] for c in cases if c['instance'] == i and c['profile'] == 'fixed_reduced_execution') for i in SPEC['instances'])
     raw_count = sum(any(c['dense_8byte_fits_all_blocks'] for c in cases if c['instance'] == i and c['profile'] == 'raw_synthesis') for i in SPEC['instances'])
-    report += ['', f'Хотя бы одно зарегистрированное разбиение помещает все плотные таблицы в оптимистический бюджет: фиксированное исполнение {fixed_count}/10, свободный синтез {raw_count}/10. Даже восемь байт на ячейку не обеспечивают необходимую точность вероятностного сертификата.', '',
+    report += ['', f'Хотя бы одно зарегистрированное разбиение помещает все плотные таблицы в оптимистический бюджет: исходное фиксированное исполнение {fixed_count}/10, после удаления избыточных связей {reduced_count}/10, свободный синтез {raw_count}/10. Даже восемь байт на ячейку не обеспечивают необходимую точность вероятностного сертификата.', '',
+               'Дополнительный fixed_reduced_execution удаляет только межблочные технологические связи, уже следующие из другого пути объединённого графа. Полная достижимость проверена до и после удаления. Каждая оставшаяся цепочка последовательно задерживает преемника, поэтому удалённый аргумент максимума не меняет физическую рекурсию ни на одном календаре. Исходные временные окна сохранены. Первый результат 60/60 из запуска44547107348 также сохранён в Releases; версия90/90 добавляет это обычное сокращение перед оценкой размера.', '',
                '## Что установлено математически', '',
                '- Пучковая постановка даёт корректный способ выразить локальные планы и совместимость. Для номинального синтеза это известная CSP-постановка; выбранные назначения, очереди и времена ещё надо найти.',
                '- Округлённые экспоненциальные отказы имеют точное конечное геометрическое представление. При исходных соотношениях средних риск фиксированного плана можно записать полиномом от q=exp(-Δ/(2C0)). Получение коэффициентов не становится бесплатным или полиномиальным.',
