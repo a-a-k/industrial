@@ -1,0 +1,13 @@
+{
+  "version": "fixed-plan-deadline-analysis-v1",
+  "input_commit": "d19227000fbecc3bcc5934d050f9993183082edd",
+  "input_manifest_sha256": "eae806cbe69b96714af182832dc5e74f2ecd3cc7ed9ae23d9235fa6423dbc38d",
+  "instances": ["Mk01", "Mk02", "Mk03", "Mk04", "Mk05", "Mk06", "Mk07", "Mk08", "Mk09", "Mk10"],
+  "scope": "Already fixed approved benchmark plans: assignments, queues and planned starts are given. Derive exact conditional deadline contracts and the limit of support-only section-existence criteria. No new plan generation.",
+  "original_criterion": "The same useful certified external production result at lower complete cost than the strongest reasonable direct method, or a better result at comparable complete cost.",
+  "candidate_mechanism": "Deadline-restricted local execution relations over actual machine calendars, with compatible global sections; existence/cohomological obstructions computed from support alone.",
+  "strong_baselines": ["calendar-aware backward DAG propagation and residuation", "service calculus and max-plus operators", "minimal conflict/cut sets and SAT diagnosis", "weighted counting, BDD and Markov inference for probabilities"],
+  "comparative_verdict": "NOT_ESTABLISHED",
+  "probability_obstruction_scope": "A support-only invariant cannot produce an MTTR-dependent 95% boundary when support and restriction maps are unchanged. This does not forbid exact conditional failure sets, deadline contracts, weighted methods or a separate algorithmic improvement.",
+  "execution": "Mathematical analysis with read-only checks of sealed input prerequisites in Actions. No new execution engine, benchmark, production simulation or risk estimate."
+}
