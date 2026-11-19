@@ -1,0 +1,36 @@
+name: Structural applicability of compositional planning
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: compositional-feasibility
+  cancel-in-progress: false
+jobs:
+  census:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container:
+      image: python:3.11.16-bookworm@sha256:b99029c95d3d37fb1e4e76d287f7984373dca77c665885986e31b2c95260c13c
+      options: --cpus=1 --memory=4g --memory-swap=4g
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: Reserve the complete campaign budget
+        run: python scripts/budget.py
+      - name: Read sealed inputs and evaluate structural sizes
+        run: python scripts/compositional_feasibility.py
+      - name: Publish all outcomes including failures
+        if: always()
+        run: |
+          if ! command -v gh >/dev/null 2>&1; then
+            apt-get update -qq && apt-get install -y --no-install-recommends gh
+          fi
+          mkdir -p output/compositional-feasibility
+          cp output/budget*.json output/compositional-feasibility/ || true
+          python scripts/publish.py --name compositional-feasibility --path output/compositional-feasibility
