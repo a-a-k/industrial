@@ -1,0 +1,23 @@
+{
+  "version": "fixed-plan-deadline-analysis-v1-completed",
+  "run": 44576152695,
+  "source": "2be0aed7c83567e9b725f5810848e462dfad45e9",
+  "release": "fixed-plan-deadline-analysis-44576152695-1",
+  "archive_sha256": "5f27219f36e3c1ad757353dd258825b800f08e6cd5435f5698cb64bebc8d5571",
+  "input_commit": "d19227000fbecc3bcc5934d050f9993183082edd",
+  "input_manifest_sha256": "eae806cbe69b96714af182832dc5e74f2ecd3cc7ed9ae23d9235fa6423dbc38d",
+  "status": "ANALYSIS_COMPLETE",
+  "fixed_input_cases": 10,
+  "comparative_verdict": "NOT_ESTABLISHED",
+  "exact_calendar_contract": "Derived by residuated backward temporal propagation; known direct baseline",
+  "support_only_result": "An invariant of unchanged actual-calendar support and restriction maps cannot identify an MTTR-dependent probability threshold",
+  "weighted_distance_result": "Minimum total variation to an arbitrary measure supported on success equals failure probability; not a complexity lower bound or an implementable repair law",
+  "not_ruled_out": ["qualitative conditional failure sets", "weighted algorithms", "parameter-dependent maps over hidden innovations", "other sheaf constructions"],
+  "new_simulations": 0,
+  "new_probability_estimates": 0,
+  "new_execution_engine": false,
+  "completed_runner_seconds_at_analysis_start": 109525,
+  "reserved_runner_seconds_at_analysis_start": 5400,
+  "current_analysis_job_not_completed_in_budget_snapshot": true,
+  "execution": "GitHub-hosted Actions only; local activity restricted to reading, editing, Git and completed artifact retrieval"
+}

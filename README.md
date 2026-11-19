@@ -13,6 +13,14 @@ factorization is established mathematically, but the tested dense tables remain
 too large. Compact symbolic representations and a comparative solver advantage
 are not established; no new solver or production simulations were run.
 
+The [fixed-plan analytical note](results/fixed-plan-deadline-analysis/REPORT_RU.md)
+keeps the given assignments and queues. It derives an exact calendar-aware
+backward deadline contract and proves that unchanged support-only section
+invariants cannot identify an MTTR-dependent probability threshold. Conditional
+failure diagnosis remains possible. A natural weighted distance to successful
+histories equals the original failure probability; this identity supplies no
+algorithmic shortcut by itself. The note claims no comparative sheaf advantage.
+
 The primary engineering task is to crash-test a fixed technologist-approved
 plan, explain weak places, and validate targeted corrections. The
 [fixed-plan diagnostic protocol](docs/FIXED_PLAN_DIAGNOSTICS_RU.md) separates
