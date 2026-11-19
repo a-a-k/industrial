@@ -1,0 +1,82 @@
+[
+  {
+    "instance": "Mk01",
+    "sha256": "7e5f4cabf66f8767efb50dc492b199a67ed54ab8df8eb08acbd06f6e1c04ab60",
+    "operations": 55,
+    "jobs": 10,
+    "machines": 6,
+    "max_technological_outdegree": 1
+  },
+  {
+    "instance": "Mk02",
+    "sha256": "f4340a2584b63812ddb4c03c0c27f7f98d371634192aaf7837a3e422e634a652",
+    "operations": 58,
+    "jobs": 10,
+    "machines": 6,
+    "max_technological_outdegree": 1
+  },
+  {
+    "instance": "Mk03",
+    "sha256": "e82eef3220ad181e8713fdea8f1d289aac809e7c3a44fabb0950c6f15d47baa8",
+    "operations": 150,
+    "jobs": 15,
+    "machines": 8,
+    "max_technological_outdegree": 1
+  },
+  {
+    "instance": "Mk04",
+    "sha256": "ca2ba8fa401faee361f590ea8aa2a7b35c5fb137944f7c73f1d3d35d9b109dfb",
+    "operations": 90,
+    "jobs": 15,
+    "machines": 8,
+    "max_technological_outdegree": 1
+  },
+  {
+    "instance": "Mk05",
+    "sha256": "df578d6799f800445a8f42fbce5742c371466abb0b4b0b7b5d0ba36b1d096111",
+    "operations": 106,
+    "jobs": 15,
+    "machines": 4,
+    "max_technological_outdegree": 1
+  },
+  {
+    "instance": "Mk06",
+    "sha256": "aff5d71d8a9a0211dbae65ffdd4e39817b12c693d6adb349516eeaea4de1c6e9",
+    "operations": 150,
+    "jobs": 10,
+    "machines": 10,
+    "max_technological_outdegree": 1
+  },
+  {
+    "instance": "Mk07",
+    "sha256": "ad11dd1e14688e219fac1eba7efc485418158b3f9a0dcb1b8b6cd16a4779372f",
+    "operations": 100,
+    "jobs": 20,
+    "machines": 5,
+    "max_technological_outdegree": 1
+  },
+  {
+    "instance": "Mk08",
+    "sha256": "9ee759ba3a30105b8452fe573687336f03d3078e5d6f9968362f6fb022688d70",
+    "operations": 225,
+    "jobs": 20,
+    "machines": 10,
+    "max_technological_outdegree": 1
+  },
+  {
+    "instance": "Mk09",
+    "sha256": "1e3c4c0d346d5334fd789252f3866e924a92809a5a7a1fe64220fcdec335940e",
+    "operations": 240,
+    "jobs": 20,
+    "machines": 10,
+    "max_technological_outdegree": 1
+  },
+  {
+    "instance": "Mk10",
+    "sha256": "b0863990074ae38ff243a610537e4ce3d84767f920553f3f08898a494e2164c8",
+    "operations": 240,
+    "jobs": 20,
+    "machines": 15,
+    "max_technological_outdegree": 1
+  }
+]

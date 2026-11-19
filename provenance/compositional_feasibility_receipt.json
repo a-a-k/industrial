@@ -1,0 +1,13 @@
+{
+  "name": "compositional-feasibility",
+  "commit": "fccb4174df8cb31fd0b4b19204287db24aa8389a",
+  "run_id": "44549110860",
+  "archive_sha256": "6f4fbda90d34d5f185e9583b58ba59b8b24b9170acc5a8cf90d37f1232e4a4e6",
+  "parts": [
+    {
+      "name": "compositional-feasibility-44549110860-1.tar.gz",
+      "bytes": 233431,
+      "sha256": "6f4fbda90d34d5f185e9583b58ba59b8b24b9170acc5a8cf90d37f1232e4a4e6"
+    }
+  ]
+}

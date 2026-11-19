@@ -5,6 +5,14 @@ E1–E6 protocol and subsequent extensions against completed evidence. It separa
 validated repair conditions from unconfirmed comparative advantages and lists
 the remaining measurement gaps. The audit adds no new simulations.
 
+The [compositional feasibility check](results/compositional-feasibility/REPORT_RU.md)
+examines sheaf-style local planning and the block sums used by recent ETH work.
+It completes 90 structural profiles on all ten sealed inputs, including ordinary
+dependency reduction and a sufficient nominal time grid. Exact fixed-plan F1
+factorization is established mathematically, but the tested dense tables remain
+too large. Compact symbolic representations and a comparative solver advantage
+are not established; no new solver or production simulations were run.
+
 The primary engineering task is to crash-test a fixed technologist-approved
 plan, explain weak places, and validate targeted corrections. The
 [fixed-plan diagnostic protocol](docs/FIXED_PLAN_DIAGNOSTICS_RU.md) separates
